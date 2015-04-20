@@ -54,6 +54,7 @@ q torq.q -load code/processes/wdb.q -p 31400 -U config/passwords/accesslist.txt 
 echo 'Starting compression proc...'
 q torq.q -load code/processes/compression.q -p 30600 -localtime </dev/null >$KDBLOG/torqcompress1.txt 2>&1 &  # compression process
 
-# launch feed
-echo 'Starting feed...'
-q torq.q -load tick/feed.q -p 30700 -localtime </dev/null >$KDBLOG/torqfeed.txt 2>&1 &
+# launch compress
+echo 'Starting requestor proc...'
+q torq.q -load code/processes/requestor.q -localtime -p 31099 1 </dev/null >$KDBLOG/torqrequestor1.txt 2>&1 &
+

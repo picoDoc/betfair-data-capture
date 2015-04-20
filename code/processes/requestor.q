@@ -9,7 +9,7 @@
   .requestor.selectionIds:enlist[`]!();
   .requestor.runnerIds:enlist[`]!();
   system"l ",getenv[`KDBHOME],"/tick/betfair.q";										/ grab schema
-  .requestor.tp:hopen 5010;													/ connect to the tp
+  .requestor.tp:hopen 31100;													/ connect to the tp
   {.timer.rep[x`start;x`end;x`interval;(`.requestor.callGetMarketData;x`marketId);2h;"get betfair data";0b]}each .requestor.markets;	/ add a jobs for each market in config
  };
 
