@@ -17,9 +17,9 @@ To get this framework up and running in a unix environment you need two things:
 4. Unzip the starter pack over the top (this will replace some files)
 5. Add account details to config/settings/requestor.q
   - fill in username and password
-...
+```
 .requestor.username:"me";
-...
+```
   - fill in appKey (need more detail on this for sure)
 6. Add in the certificates (need more detail and a link here)
 7. Add in some event IDs to track
