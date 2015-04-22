@@ -62,7 +62,23 @@ To get this framework up and running in a unix environment you need two things:
 
 ## Use
 
-* Some info on basic gateway queries goes here 
+* Once you have some data in the system there are some basic queries on the gateway.  
+    - You can run to get a list of available events in your database: 
+
+        ```
+        getEvents[]
+        ```
+    - To return the mid run:
+        
+        ```
+        getMid enlist[`sym]!enlist[`$"Scotland v Ireland"]
+        ```
+    - To return the mid pivoted (so the outcomes are columns rather than rows):
+
+        ```
+        getMidPivot enlist[`sym]!enlist[`$"Scotland v Ireland"]
+        ```
+* I'm going to add more details in here when I can be assed...
 
 
 For more information on how to configure and get started, read *TODO*
