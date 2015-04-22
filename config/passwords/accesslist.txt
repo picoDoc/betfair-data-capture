@@ -1,5 +1,5 @@
 discovery:pass
-feed:pass
+requestor:pass
 gateway:pass
 hdb:pass
 housekeeping:pass

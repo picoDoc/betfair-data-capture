@@ -1,4 +1,8 @@
-.requestor.markets:([]market:();marketId:();start:();end:();interval:());
+// Requestor config
+.requestor.markets:([]market:();marketId:();start:();end:();interval:());  // Table for markets to gather data on
+.servers.enabled:1b
+.servers.CONNECTIONS:enlist `tickerplant         // Requestor connects to the tickerplant
+.servers.HOPENTIMEOUT:30000
 
 // betfair login details (add your own here)
 .requestor.username:"";
