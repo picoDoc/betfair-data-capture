@@ -61,9 +61,10 @@ To get this framework up and running in a unix environment you need two things:
     sh start_torq_demo.sh
     ```
 
-## Use
 
-* Once you have some data in the system there are some basic queries on the gateway.  
+## Using the API
+
+* Once you have some data in the system there are some basic queries that can be run on the gateway to retrieve data.  
     - You can run to get a list of available events in your database: 
 
         ```
@@ -82,4 +83,13 @@ To get this framework up and running in a unix environment you need two things:
 * I'm going to add more details in here when I can be assed...
 
 
-For more information on how to configure and get started, read *TODO*
+## Thing still to do...
+
+* Add a nice TorQ style pdf to go with this README, with a bit more in depth detail on:
+    - how the whole system works
+    - what form the data is actually stored in
+    - writing new API queries 
+    - etc.
+* Polish and expand API
+* Make sure everything works/makes sense based on feedback from the Andrews
+* Maybe add an integrated method to search for and add new markets (rather than having to use the API-NG visualiser on betfair.com)
