@@ -5,6 +5,7 @@ This is a simple example of a market data capture system using sports exchange (
 
 To get this framework up and running in a unix environment you need two things:
 
+1. A unix environement with wget and curl installed (this TorQonnect package **does not currently work in windows**).
 1. The [free 32 bit version of kdb+](http://kx.com/software-download.php) set up and available from the command prompt as q.
 2. A betfair.com account. If you don't already have an account you can get one [here](https://register.betfair.com/account/registration).
 
