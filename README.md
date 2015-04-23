@@ -93,3 +93,4 @@ To get this framework up and running in a unix environment you need two things:
 * Polish and expand API
 * Make sure everything works/makes sense based on feedback from the Andrews
 * Maybe add an integrated method to search for and add new markets (rather than having to use the API-NG visualiser on betfair.com)
+* Make the bash scripts use either curl or wget, rather than a bit of both...
