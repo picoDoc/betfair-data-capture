@@ -5,9 +5,9 @@ This is a simple example of a market data capture system using sports exchange (
 
 To get this framework up and running in a unix environment you need two things:
 
-1. A unix environement with wget and curl installed (this TorQonnect package **does not currently work in windows**).
-1. The [free 32 bit version of kdb+](http://kx.com/software-download.php) set up and available from the command prompt as q.
-2. A betfair.com account. If you don't already have an account you can get one [here](https://register.betfair.com/account/registration).
+1. A Windows or Unix environment with python installed (tested with Python 2.7.9 and 3.4.3)
+2. The [free 32 bit version of kdb+](http://kx.com/software-download.php) set up and available from the command prompt as q.
+3. A betfair.com account. If you don't already have an account you can get one [here](https://register.betfair.com/account/registration).
 
 
 ## Set Up
@@ -82,6 +82,9 @@ To get this framework up and running in a unix environment you need two things:
         ```
 * I'm going to add more details in here when I can be assed...
 
+## Python Prerequisites
+* Need to able to invoke python from the command line.  This should not be an issue on Unix environments.  If you cannot do this on a Windows environment, please check this [link](https://docs.python.org/2/using/windows.html#excursus-setting-environment-variables)
+* The "requests" module is required for the python script.  If you do not have this installed, please click [here](http://docs.python-requests.org/en/latest/user/install/) for more information.
 
 ## Thing still to do...
 
@@ -93,4 +96,3 @@ To get this framework up and running in a unix environment you need two things:
 * Polish and expand API
 * Make sure everything works/makes sense based on feedback from the Andrews
 * Maybe add an integrated method to search for and add new markets (rather than having to use the API-NG visualiser on betfair.com)
-* Make the bash scripts use either curl or wget, rather than a bit of both...
