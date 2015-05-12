@@ -25,9 +25,13 @@ jsonStringParam:{[d]
  
 // function to get a new session token/id
 getSessionToken:{[]
+  / - validate username, password and appKey (cannot be empty)
+  $[not count username;.lg.e[`getSessionToken;"Username cannot be empty. Please check code/settings/requestor.q"];
+	not count password;.lg.e[`getSessionToken;"Password cannot be empty. Please check code/settings/requestor.q"];
+	not count appKey;.lg.e[`getSessionToken;"AppKey cannot be empty. Please check code/settings/requestor.q"];()];
   .lg.o[`getSessionToken;"Attempting to login to betfair api"];
   loginResp: callApi[("login";appKey;jsonStringParam `username`password!(username;password))];
-  $["SUCCESS" ~ loginResp`loginStatus;
+  $["SUCCESS" ~ respstr:loginResp`loginStatus;
 	[.lg.o[`getSessionToken;"Login successful: ",st:loginResp`sessionToken];sessionToken:: st];
 	.lg.e[`getSessionToken;"Login failed. Response was: ",respstr]]};
 
@@ -51,7 +55,8 @@ getMarketData:{[id]
 
 // function to replace selectionId with names, add in meta data, reorder cols
 formatMarketData:{[id;tabname;data]
-	data: update .requestor.selectionIds[id;selectionId] from data;	/ replace selectionId with selection names
+	if[() ~ data;:()]; 						/ if data is empty, then escape
+   	data: update .requestor.selectionIds[id;selectionId] from data;	/ replace selectionId with selection names
  	data: flip[count[data] #/: `$ metaData[id]] ,' data;		/ add in meta data
 	data:`sym xcol `name xcols data;				/ give it a sym cols to keep kdb happy
 	cols[`. tabname] # update time:.z.p from data}			/ add time and reorder to match schema
@@ -59,7 +64,7 @@ formatMarketData:{[id;tabname;data]
 // error trapped call to getMarketData
 callGetMarketData:{[id]
   e:{.lg.e[`APING_CALL_FAILED;"call to betfair failed with error ",x]};
-  @[getMarketData;id;e] };
+  @[getMarketData;id;e]};
 
 // function to get meta data about given market id
 getMetaData:{[id]
@@ -67,6 +72,8 @@ getMetaData:{[id]
   reqd: buildMetaDataReq[id];
   / - calling the api 
   r: first callApi[("data";appKey;sessionToken;reqd)][`result];
+  / - if no data returned, then escape
+  if[ () ~ r;:()];
   selectionIds[id]:first each exec `$runnerName by selectionId from r`runners; / populate selectionIds,
   runnerIds[id]:exec `$runnerName by runnerId from update runnerId:metadata @' `runnerId from  r[`runners]; / runnerIds
   metaData[id]:r`event;						/ and some other stuff...
