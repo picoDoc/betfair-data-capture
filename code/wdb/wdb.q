@@ -1,7 +1,9 @@
 // this job takes the trades table as it is saved down and writes to a cache called "activeDates", which
 // keeps track of what syms are active on each date.  This makes API calls much faster as they know what dates
 // to put in the where clause in hdb queries
-.save.savedownmanipulation[`trade]:{[x]
+.wdb.savedownmanipulation:()!();
+
+.wdb.savedownmanipulation[`trade]:{[x]
   hdb:hsym `$getenv[`KDBHOME],"/hdb/database";
   if[not `activeDates in key hdb;set[` sv hdb,`activeDates;()!()]];		/ if activeDates cache doesn't exist, make it  
   ad:get ` sv hdb,`activeDates;							/ get the current activeDates cache from disk

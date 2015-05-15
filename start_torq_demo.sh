@@ -44,7 +44,7 @@ q torq.q -load code/processes/housekeeping.q -localtime -p 30400 -U config/passw
 
 # launch sort processes
 echo 'Starting sorting proc...'
-q torq.q -load code/processes/wdb.q -localtime -p 31450 -U config/passwords/accesslist.txt 1 -g 1 -.proc.loadprocesscode 1 </dev/null >$KDBLOG/torqsort.txt 2>&1 & # sort process
+q torq.q -load code/processes/wdb.q -localtime -p 31450 -U config/passwords/accesslist.txt 1 -g 1 </dev/null >$KDBLOG/torqsort.txt 2>&1 & # sort process
 
 # launch wdb
 echo 'Starting wdb...'
