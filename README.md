@@ -85,6 +85,12 @@ To get this framework up and running in a unix environment you need two things:
 ## Python Prerequisites
 * Need to able to invoke python from the command line.  This should not be an issue on Unix environments.  If you cannot do this on a Windows environment, please check this [link](https://docs.python.org/2/using/windows.html#excursus-setting-environment-variables)
 * The "requests" module is required for the python script.  If you do not have this installed, please click [here](http://docs.python-requests.org/en/latest/user/install/) for more information.
+* Need to install the requests security package extras as well, otherwise the Python script will log an error everytime it runs (although it still works)
+
+	```
+	$ pip install requests[security]
+
+	```
 
 ## Thing still to do...
 
