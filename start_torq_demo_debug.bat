@@ -19,6 +19,8 @@ REM  launch the discovery service
 REM  'Starting discovery proc...'
 start "discovery" q torq.q -load code/processes/discovery.q -localtime -p 31000 -U config/passwords/accesslist.txt -stop -debug
 
+timeout 2
+
 REM  launch the tickerplant, rdb, hdb
 REM  'Starting tp...'
 start "tickerplant" q tickerplant.q database hdb -localtime -p 31100 -U config/passwords/accesslist.txt -stop -debug
