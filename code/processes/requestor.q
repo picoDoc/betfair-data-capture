@@ -4,6 +4,7 @@
 // init function
 init:{[]
   .lg.o[`init;"Running initialization function"];
+  sessionToken:: "";
   getSessionToken[];						/ get sessionToken
   .lg.o[`init;"Setting up timer to refresh session"];
   .timer.rep[.z.p;0Wp;0D06:00:00;(`.requestor.getSessionToken;`);2h;"refresh the Session Token";1b]; / refresh it every 6 hrs
@@ -30,7 +31,7 @@ getSessionToken:{[]
 	not count password;.lg.e[`getSessionToken;"Password cannot be empty. Please check code/settings/requestor.q"];
 	not count appKey;.lg.e[`getSessionToken;"AppKey cannot be empty. Please check code/settings/requestor.q"];()];
   .lg.o[`getSessionToken;"Attempting to login to betfair api"];
-  loginResp: callApi[("login";appKey;jsonStringParam `username`password!(username;password))];
+  loginResp: callApi[`login;jsonStringParam `username`password!(username;password)];
   $["SUCCESS" ~ respstr:loginResp`loginStatus;
 	[.lg.o[`getSessionToken;"Login successful: ",st:loginResp`sessionToken];sessionToken:: st];
 	.lg.e[`getSessionToken;"Login failed. Response was: ",respstr]]};
@@ -41,7 +42,7 @@ getMarketData:{[id]
   / - build json request dictionary
   reqd: buildMarketDataReq[id];
   / - call the api to get the data
-  r: first callApi[("data";appKey;sessionToken;reqd)][`result][`runners];
+  r: first callApi[`data;reqd][`result][`runners];
   
   trades:raze {if[98h<>type t:x[`ex;`tradedVolume];:()];update selectionId:x`selectionId from t}each r; / grab trades data (if it's there)
   trades:formatMarketData[id;`trade;trades];
@@ -71,7 +72,7 @@ getMetaData:{[id]
   / - build the json request dictionary
   reqd: buildMetaDataReq[id];
   / - calling the api 
-  r: first callApi[("data";appKey;sessionToken;reqd)][`result];
+  r: first callApi[`data;reqd][`result];
   / - if no data returned, then escape
   if[ () ~ r;:()];
   selectionIds[id]:first each exec `$runnerName by selectionId from r`runners; / populate selectionIds,
@@ -86,7 +87,7 @@ buildMetaDataReq:{[id]
  / - parameter dictionary (includes filterd dictionary)
  paramd: `filter`sort`maxResults`marketProjection!(filterd;"FIRST_TO_START";"1";("COMPETITION";"EVENT";"EVENT_TYPE";"RUNNER_DESCRIPTION";"RUNNER_METADATA"));
  / - main dictionary (includes paramd dictionary)
- buildJsonRpcDict["listMarketCatalogue";paramd]}
+ buildJsonRpcDict[`listMarketCatalogue;paramd]}
 
 // function to build api request dictionary for market data
 buildMarketDataReq:{[id]
@@ -95,29 +96,49 @@ buildMarketDataReq:{[id]
  / - parameter dictionary (includes priceP dictionary)
  paramd:`marketIds`priceProjection`orderProjection`matchProjection!(string (),id;priceP;"ALL";"ROLLED_UP_BY_PRICE");
  / - main dictionary (includes paramd dictionary)
- buildJsonRpcDict["listMarketBook";paramd]}
+ buildJsonRpcDict[`listMarketBook;paramd]}
 
 buildJsonRpcDict:{[api;paramd]
- jsonStringParam `jsonrpc`method`params`id!("2.0";"SportsAPING/v1.0/",api;paramd;1)}
+ jsonStringParam `jsonrpc`method`params`id!("2.0";"SportsAPING/v1.0/",string api;paramd;1)}
+ 
+// function to get a table of all the event types
+getEventTypes:{[]
+	data: callApi[`data;buildJsonRpcDict[`listEventTypes;enlist[`filter]!enlist ()!()]];
+	select eventid: `$eventType @' `id, eventname: `$eventType @' `name, marketcount: marketCount from data`result}
 
 // function to return a table of markets for a particular sports id
+marketinfo:([] eventtypeid: `symbol$();eventtypeName: `symbol$();competitionid: `symbol$();competitionname: `symbol$();marketid: `symbol$();
+	marketname: `symbol$();totalmatched: `float$();eventid: `symbol$();eventname: `symbol$();runnername: `symbol$();selectionid: `symbol$());
 getMarketInfo:{[sportids;text]
  / - filter dictionary
  filter: enlist[`eventTypeIds]! enlist string (),sportids;
  if[count[text] and not "*" ~ first text; filter[`textQuery]:text];
  / - paramd dictionary
- paramd:`filter`maxResults`marketProjection!(filter;1000;("COMPETITION";"EVENT";"EVENT_TYPE";"RUNNER_DESCRIPTION";"RUNNER_METADATA"));
+ paramd:`filter`maxResults`marketProjection`sort!(filter;200;("COMPETITION";"EVENT";"EVENT_TYPE";"RUNNER_DESCRIPTION";"RUNNER_METADATA");`MAXIMUM_TRADED);
  / - build the json req dictionary
- req: buildJsonRpcDict["listMarketCatalogue";paramd];
+ req: .requestor.buildJsonRpcDict[`listMarketCatalogue;paramd];
  / - call the api
- data: callApi[("data";appKey;sessionToken;req)][`result];
+ data: .requestor.callApi[`data;req][`result];
+ / - if an empty list is returned, then escape returning an empty schema
+ if[ data ~ ();:.requestor.marketinfo];
+ / - some markets don't return anything for competition 
+ data:{flip y!x[y]}[data;`eventType`competition`marketId`totalMatched`marketName`event`runners];
  / - return a table with info for the markets
- select marketId, marketName, totalMatched, eventType:eventType @' `name, competition: competition @' `name, event: event @' `name  from data}
+ select 
+    eventtypeid: `$ eventType @' `id, eventtypeName: `$ eventType @' `name,
+    competitionid: `$ competition @' `id, competitionname: `$ competition @' `name,
+    marketid: `$ marketId, marketname: `$ marketName,
+    totalmatched: totalMatched,
+    eventid: `$ event @' `id, eventname: `$ event @' `name,
+    runnername: .Q.s1 each `$runners @' `runnerName,  selectionid: .Q.s1 each `$string runners @' `selectionId
+    from data}
 
 // function to call the betfair api for data requests
-callApi:{[x]
+callApi:{[typ;req]
+ / - build the command line params to be passed to the python script
+ cmdparams: " " sv (string typ;appKey;sessionToken;req);
  / - submit the request via the python handler
- data: first system " " sv enlist["python",$[.os.NT;"w";()]; .os.pth getenv[`KDBBIN],"/getData.py"] , (),x;
+ data: first system " " sv ("python",$[.os.NT;"w";()]; .os.pth getenv[`KDBBIN],"/getData.py";cmdparams);
  / - check for errors returned by python handler
  if["ERROR:" ~ 6#data;.lg.e[`callApi;data]];
  / - convert the json string into a q dictionary
