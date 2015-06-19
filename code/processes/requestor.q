@@ -37,7 +37,7 @@ login:{[]
 	loginResp: callApi[`login;jsonStringParam `username`password!(username;password)];
 	$["SUCCESS" ~ respstr:loginResp`loginStatus;
 		[.lg.o[`login;"Login successful: ",st:loginResp`sessionToken];sessionToken:: st];
-		.lg.e[`login;"Login failed. Response was: ",respstr]]};
+		.lg.e[`login;"Login failed. Response was: ",respstr]];};
 
 // function to get market data and send to tp for a given marketid
 getMarketData:{[id]
@@ -154,11 +154,13 @@ keepAlive:{[]
 	$["SUCCESS" ~ data`status;
 		.lg.o[`keepAlive;"Keep Alive call has succeeded : ",data`token];
 		.lg.e[`keepAlive;"Keep Alive call failed. The error was : ",data`error]]}
-// function to logout of sessioj from betfair
+// function to logout of session from betfair
 logout:{[]
+	/ - if there is no session token then escape
+	if[not count sessionToken;:()];
 	data:callApi[`logout;""];
 	$["SUCCESS" ~ data`status;
-		.lg.o[`logout;"Logout call has succeeded : ",data`token];
+		[.lg.o[`logout;"Logout call has succeeded : ",data`token]; sessionToken:: ""];
 		.lg.e[`logout;"Logout call has failed.  The error was : ",data`error]]}
 // add logout call to .z.exit 
 .z.exit:{[f;x]
