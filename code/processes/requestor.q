@@ -107,22 +107,19 @@ getEventTypes:{[]
 	select eventid: `$eventType @' `id, eventname: `$eventType @' `name, marketcount: marketCount from data`result}
 
 // function to return a table of markets for a particular sports id
-marketinfo:([] eventtypeid: `symbol$();eventtypeName: `symbol$();competitionid: `symbol$();competitionname: `symbol$();marketid: `symbol$();
-	marketname: `symbol$();totalmatched: `float$();eventid: `symbol$();eventname: `symbol$();runnername: `symbol$();selectionid: `symbol$());
-getMarketInfo:{[sportids;text]
+getMarketCatalogue:{[sportids;text]
  / - filter dictionary
- filter: enlist[`eventTypeIds]! enlist string (),sportids;
+ filter: ()!();
+ if[not all null sportids; filter[`eventTypeIds]: string (),sportids];
  if[count[text] and not "*" ~ first text; filter[`textQuery]:text];
  / - paramd dictionary
  paramd:`filter`maxResults`marketProjection`sort!(filter;200;("COMPETITION";"EVENT";"EVENT_TYPE";"RUNNER_DESCRIPTION";"RUNNER_METADATA");`MAXIMUM_TRADED);
  / - build the json req dictionary
- req: .requestor.buildJsonRpcDict[`listMarketCatalogue;paramd];
+ req: buildJsonRpcDict[`listMarketCatalogue;paramd];
  / - call the api
- data: .requestor.callApi[`data;req][`result];
- / - if an empty list is returned, then escape returning an empty schema
- if[ data ~ ();:.requestor.marketinfo];
+ data: callApi[`data;req][`result];
  / - some markets don't return anything for competition 
- data:{flip y!x[y]}[data;`eventType`competition`marketId`totalMatched`marketName`event`runners];
+ data:{y!x[y]}[;`eventType`competition`marketId`totalMatched`marketName`event`runners] each data;
  / - return a table with info for the markets
  select 
     eventtypeid: `$ eventType @' `id, eventtypeName: `$ eventType @' `name,
@@ -130,7 +127,7 @@ getMarketInfo:{[sportids;text]
     marketid: `$ marketId, marketname: `$ marketName,
     totalmatched: totalMatched,
     eventid: `$ event @' `id, eventname: `$ event @' `name,
-    runnername: .Q.s1 each `$runners @' `runnerName,  selectionid: .Q.s1 each `$string runners @' `selectionId
+    runnername: .Q.s1 each `$runners @'' `runnerName,  selectionid: .Q.s1 each `$string runners @'' `selectionId
     from data}
 
 // function to call the betfair api for data requests
