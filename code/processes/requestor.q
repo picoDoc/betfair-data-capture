@@ -10,7 +10,7 @@ metadata:([eventTypeId: `int$();eventId: `int$();marketId: `symbol$();selectionI
 init:{[]
 	.lg.o[`init;"Running initialization function"];
 	sessionToken:: "";
-	getSessionToken[];						/ get sessionToken
+	login[];						/ login to the betfair api
 	.lg.o[`init;"Setting up timer to refresh session"];
 	.timer.rep[.z.p;0Wp;0D06:00:00;(`.requestor.keepAlive;`);2h;"refresh the Session Token";1b]; / refresh it every 6 hrs
 	.lg.o[`init;"Making connection the tickerplant"];
@@ -28,16 +28,16 @@ jsonStringParam:{[d]
 	$[.os.NT;ssr[jsonstr;"\"";"\\\""];"'",jsonstr,"'"]}
  
 // function to get a new session token/id
-getSessionToken:{[]
+login:{[]
 	/ - validate username, password and appKey (cannot be empty)
-	$[not count username;.lg.e[`getSessionToken;"Username cannot be empty. Please check code/settings/requestor.q"];
-		not count password;.lg.e[`getSessionToken;"Password cannot be empty. Please check code/settings/requestor.q"];
-		not count appKey;.lg.e[`getSessionToken;"AppKey cannot be empty. Please check code/settings/requestor.q"];()];
-	.lg.o[`getSessionToken;"Attempting to login to betfair api"];
+	$[not count username;.lg.e[`login;"Username cannot be empty. Please check code/settings/requestor.q"];
+		not count password;.lg.e[`login;"Password cannot be empty. Please check code/settings/requestor.q"];
+		not count appKey;.lg.e[`login;"AppKey cannot be empty. Please check code/settings/requestor.q"];()];
+	.lg.o[`login;"Attempting to login to betfair api"];
 	loginResp: callApi[`login;jsonStringParam `username`password!(username;password)];
 	$["SUCCESS" ~ respstr:loginResp`loginStatus;
-		[.lg.o[`getSessionToken;"Login successful: ",st:loginResp`sessionToken];sessionToken:: st];
-		.lg.e[`getSessionToken;"Login failed. Response was: ",respstr]]};
+		[.lg.o[`login;"Login successful: ",st:loginResp`sessionToken];sessionToken:: st];
+		.lg.e[`login;"Login failed. Response was: ",respstr]]};
 
 // function to get market data and send to tp for a given marketid
 getMarketData:{[id]
@@ -154,8 +154,17 @@ keepAlive:{[]
 	$["SUCCESS" ~ data`status;
 		.lg.o[`keepAlive;"Keep Alive call has succeeded : ",data`token];
 		.lg.e[`keepAlive;"Keep Alive call failed. The error was : ",data`error]]}
-	
-
+// function to logout of sessioj from betfair
+logout:{[]
+	data:callApi[`logout;""];
+	$["SUCCESS" ~ data`status;
+		.lg.o[`logout;"Logout call has succeeded : ",data`token];
+		.lg.e[`logout;"Logout call has failed.  The error was : ",data`error]]}
+// add logout call to .z.exit 
+.z.exit:{[f;x]
+	logout[];
+	f[x]
+	}[@[value;`.z.exit;{{}}]]
 // run initialization
 \d .
 .lg.o[`init;"Loading schema file"];

@@ -38,6 +38,16 @@ elif sys.argv[1] == 'keepAlive' :
 	url = 'https://identitysso.betfair.com/api/keepAlive'
 	# call the betfair api and print the json string to stdout
 	resp = requests.post(url, headers=headers)
+elif sys.argv[1] == 'logout' :
+	# parse command line parameters
+	app_key = sys.argv[2]
+	session_token = sys.argv[3]
+	# define the headers
+	headers = {'X-Application': app_key, 'X-Authentication': session_token, 'Accept' : 'application/json' }
+	# definer the url
+	url = 'https://identitysso.betfair.com/api/logout'
+	# call the betfair api and print the json string to stdout
+	resp = requests.post(url, headers=headers)
 else :
 	print('ERROR: Command line parameters invalid.  Exiting script...')
 	exit()
