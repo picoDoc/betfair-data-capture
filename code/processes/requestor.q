@@ -42,9 +42,12 @@ login:{[]
 // function to get market data and send to tp for a given marketid
 getMarketData:{[id]
 	/ - check if the market id exists in the metadata table, if not then get the meta data from betfair
-	if[not id in exec marketId from metadata; addMetaData[id]];
+	if[not all bools:(id:(),id) in exec marketId from metadata; addMetaData[id where not bools]];
 	/ - get the market book data ( trades and quotes )
-	r: getMarketBook[id];
+	data: getMarketBook[id]`result;
+	/ - make the keys/columns homogeneous for each marketid (so dictionaries will collapse into a queriable table)
+	data: {x!y[x]}[raze distinct key each data;] each data;
+	r: ungroup select `$marketId, selectionId:runners @'' `selectionId, ex:runners @'' `ex from data;
 	/ - format the trades from the market book data
 	trades:formatTrades[id;r];
 	/ - format the quotes from the market book data
@@ -61,19 +64,19 @@ getMarketBook:{[id]
 	/ - main dictionary (includes paramd dictionary)
 	reqd: buildJsonRpcDict[`listMarketBook;paramd];
 	/ - call the api to get the data
-	first callApi[`data;reqd][`result][`runners]}	
+	callApi[`data;reqd]}	
 
 // functions to format trade and quote data returned from betfair
 formatTrades:{[id;data]
 	/ - extract the traded volumes
-	trades:raze {if[98h<>type t:x[`ex;`tradedVolume];:()];update selectionId: `int$ x`selectionId from t}each data;
+	trades:raze {if[98h<>type t:x[`ex;`tradedVolume];:()];update marketId: x`marketId, selectionId: `int$ x`selectionId from t}each data;
 	/ - join on metadata
 	joinMetaData[id;`trade;trades]}
 formatQuotes:{[id;data]
 	/ - extract the back quotes
-	quotes:raze {if[98h<>type t:x[`ex;`availableToBack];:()];update selectionId: `int$ x`selectionId,side:`back from t}each data; / grab quotes data (backers)
+	quotes:raze {if[98h<>type t:x[`ex;`availableToBack];:()];update marketId: x`marketId, selectionId: `int$ x`selectionId,side:`back from t}each data;
 	/ - extract the lay quotes
-	quotes,:raze {if[98h<>type t:x[`ex;`availableToLay];:()];update selectionId: `int$ x`selectionId,side:`lay from t}each data; / grab quotes data (layers)
+	quotes,:raze {if[98h<>type t:x[`ex;`availableToLay];:()];update marketId: x`marketId, selectionId: `int$ x`selectionId,side:`lay from t}each data; 
 	/ - join on metadata
 	joinMetaData[id;`quote;quotes]}
  
@@ -84,8 +87,8 @@ pubDataToTp:{[tabname;data] neg[tp](`.u.upd;tabname;$[type data;value flip 0!dat
 joinMetaData:{[id;tabname;data]
 	/ - join on the meta data
 	data: data lj 
-	    1!select selectionId, selectionName, sym: eventName, marketName, timezone, `$string openDate, eventType: eventTypeName, id:`$string eventId 
-	    from metadata where marketId in id;
+	    2!select selectionId, marketId, selectionName, sym: eventName, marketName, timezone, `$string openDate, eventType: eventTypeName, id:`$string eventId 
+	    from metadata;
 	/ - reorder and return the data
 	(cols[`. tabname] except `time) # update selectionId:selectionName from data} 
 
@@ -137,7 +140,7 @@ callApi:{[typ;req]
 	/ - build the command line params to be passed to the python script
 	cmdparams: " " sv (string typ;appKey;sessionToken;req);
 	/ - submit the request via the python handler
-	data: first system " " sv ("python",$[.os.NT;"w";()]; .os.pth getenv[`KDBBIN],"/getData.py";cmdparams);
+	data: first system " " sv ("python","w ".os.NT; .os.pth getenv[`KDBBIN],"/getData.py";cmdparams);
 	/ - check for errors returned by python handler
 	if["ERROR:" ~ 6#data;.lg.e[`callApi;data]];
 	/ - convert the json string into a q dictionary
