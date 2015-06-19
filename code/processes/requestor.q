@@ -12,7 +12,7 @@ init:{[]
 	sessionToken:: "";
 	getSessionToken[];						/ get sessionToken
 	.lg.o[`init;"Setting up timer to refresh session"];
-	.timer.rep[.z.p;0Wp;0D06:00:00;(`.requestor.getSessionToken;`);2h;"refresh the Session Token";1b]; / refresh it every 6 hrs
+	.timer.rep[.z.p;0Wp;0D06:00:00;(`.requestor.keepAlive;`);2h;"refresh the Session Token";1b]; / refresh it every 6 hrs
 	.lg.o[`init;"Making connection the tickerplant"];
 	.servers.startup[];						/ connect to the discovery and tp processes
 	tp::.servers.gethandlebytype[`tickerplant;`any];
@@ -143,10 +143,18 @@ callApi:{[typ;req]
 	/ - convert the json string into a q dictionary
 	data:.j.k data;
 	/ - check if the response has returned a result (otherwise it will have returned an error)
-	$[`error in key data;
+	$[(`error in key data) and count data`error;
 		/ - pull the error code and log the error in the process log
 		.lg.e[`callApi;"ERROR response received from Betfair: ",data[`error;`data;`APINGException;`errorCode]];
 		:data]}
+		
+// function to keep session alive alive
+keepAlive:{[]
+	data:callApi[`keepAlive;""];
+	$["SUCCESS" ~ data`status;
+		.lg.o[`keepAlive;"Keep Alive call has succeeded : ",data`token];
+		.lg.e[`keepAlive;"Keep Alive call failed. The error was : ",data`error]]}
+	
 
 // run initialization
 \d .
