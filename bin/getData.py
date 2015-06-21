@@ -1,6 +1,10 @@
 #!/usr/bin/env python
 
-import requests
+try :
+	import requests
+except ImportError :
+	print('ERROR: Could not import requests module.  Please check if it is installed.')
+	exit()
 import os
 import sys
 import json
