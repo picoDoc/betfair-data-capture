@@ -115,12 +115,13 @@ getEventTypes:{[]
 	select eventid: `$eventType @' `id, eventname: `$eventType @' `name, marketcount: marketCount from data`result}
 
 // function to return a table of markets for a particular sports id
-getMarketCatalogue:{[sportids;marketids;text]
+getMarketCatalogue:{[sportids;marketids;text;inplay]
 	/ - filter dictionary
 	filter: ()!();
 	if[not all null sportids; filter[`eventTypeIds]: string (),sportids];
 	if[not all null marketids; filter[`marketIds]: string (), marketids];
 	if[count[text] and not "*" ~ first text; filter[`textQuery]:text];
+	if[count inplay; filter[`inPlayOnly]:inplay];
 	/ - paramd dictionary
 	paramd:`filter`maxResults`marketProjection`sort!(filter;200;("COMPETITION";"EVENT";"EVENT_TYPE";"RUNNER_DESCRIPTION";"RUNNER_METADATA");`MAXIMUM_TRADED);
 	/ - build the json req dictionary
