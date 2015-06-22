@@ -1,6 +1,14 @@
 // Requestor service to go to betfair and grab data, then send it down to the tickerplant
 \d .requestor
 
+// Default Parameters
+logoutonexit:@[value;`logoutonexit;1b]		/ - logout of betfair session when the process is shutdown
+keepalivetime:@[value;`keepalivetime;0D06]	/ - send a keep alive every X
+pubprocs:@[value;`pubprocs;(),`tickerplant1]	/ - list of processes (names not types) to publish data to.  If null symbol, then the 
+						/ - the process will not publish data and will used to poll for ad-hoc data (i.e. query via gw)
+pubconnsleepintv:@[value;`pubconnsleepintv;5]	/ - number of seconds to sleep before re-attempting to connection to downstream processes
+
+
 // schemas 
 metadata:([eventTypeId: `int$();eventId: `int$();marketId: `symbol$();selectionId: `int$()] 
 		eventTypeName: `symbol$();competitionId: `int$();competitionName: `symbol$(); marketName: `symbol$(); 
@@ -12,12 +20,17 @@ init:{[]
 	sessionToken:: "";
 	login[];						/ login to the betfair api
 	.lg.o[`init;"Setting up timer to refresh session"];
-	.timer.rep[.z.p;0Wp;0D06:00:00;(`.requestor.keepAlive;`);2h;"refresh the Session Token";1b]; / refresh it every 6 hrs
+	.timer.rep[.z.p;0Wp;keepalivetime;(`.requestor.keepAlive;`);2h;"refresh the Session Token";1b]; / refresh it every 6 hrs
 	.lg.o[`init;"Making connection the tickerplant"];
 	.servers.startup[];						/ connect to the discovery and tp processes
-	tp::.servers.gethandlebytype[`tickerplant;`any];
-	.lg.o[`init;"Setting timer to poll betfair api for data"];  
-	{.timer.rep[x`start;x`end;x`interval;(`.requestor.callGetMarketData;x`marketId);2h;"get betfair data";0b]}each markets}; / add a job for each market in config
+	if[not all n:null pubprocs;
+		while[count[pubprocs where not n] > count handles: .servers.getservers[`name;pubprocs;()!();1b;1b]`w;
+			.os.sleep[pubconnsleepintv];
+			/-run the servers startup code again (to make connection to discovery)
+			.servers.startup[]];
+		@[`.requestor;`tphs;:;handles];
+		.lg.o[`init;"Setting timer to poll betfair api for data"]; 
+		{.timer.rep[x`start;x`end;x`interval;(`.requestor.callGetMarketData;x`marketId);2h;"get betfair data";0b]}each markets]}; / add a job for each market in config
 
 // function to convert kdb dictionary into a string which can be passed as a command line parameter
 jsonStringParam:{[d]
@@ -27,18 +40,6 @@ jsonStringParam:{[d]
 	/ - passed as a command line parameter on both DOS ans Unix-like systems
 	$[.os.NT;ssr[jsonstr;"\"";"\\\""];"'",jsonstr,"'"]}
  
-// function to get a new session token/id
-login:{[]
-	/ - validate username, password and appKey (cannot be empty)
-	$[not count username;.lg.e[`login;"Username cannot be empty. Please check code/settings/requestor.q"];
-		not count password;.lg.e[`login;"Password cannot be empty. Please check code/settings/requestor.q"];
-		not count appKey;.lg.e[`login;"AppKey cannot be empty. Please check code/settings/requestor.q"];()];
-	.lg.o[`login;"Attempting to login to betfair api"];
-	loginResp: callApi[`login;jsonStringParam `username`password!(username;password)];
-	$["SUCCESS" ~ respstr:loginResp`loginStatus;
-		[.lg.o[`login;"Login successful: ",st:loginResp`sessionToken];sessionToken:: st];
-		.lg.e[`login;"Login failed. Response was: ",respstr]];};
-
 // function to get market data and send to tp for a given marketid
 getMarketData:{[id]
 	/ - check if the market id exists in the metadata table, if not then get the meta data from betfair
@@ -81,7 +82,7 @@ formatQuotes:{[id;data]
 	joinMetaData[id;`quote;quotes]}
  
 // function to data to the tickerplant
-pubDataToTp:{[tabname;data] neg[tp](`.u.upd;tabname;$[type data;value flip 0!data;data])}
+pubDataToTp:{[tabname;data] neg[tphs] @\: (`.u.upd;tabname;$[type data;value flip 0!data;data])}
 
 // function to replace selectionId with names, add in meta data, reorder cols
 joinMetaData:{[id;tabname;data]
@@ -98,7 +99,7 @@ callGetMarketData:{[id]
 	@[getMarketData;id;e]};
 
 // function to get meta data about given market id
-getMetaData:{[marketids] delete totalMatched from distinct ungroup getMarketCatalogue[0N;marketids;()]}
+getMetaData:{[marketids] delete totalMatched from distinct ungroup getMarketCatalogue[0N;marketids;();()]}
 // update the global metadata table
 addMetaData:{[marketids]
 	/ - call the api for meta data on marketids
@@ -151,7 +152,19 @@ callApi:{[typ;req]
 		/ - pull the error code and log the error in the process log
 		.lg.e[`callApi;"ERROR response received from Betfair: ",data[`error;`data;`APINGException;`errorCode]];
 		:data]}
-		
+
+// session management code		
+// function to get a new session token/id
+login:{[]
+	/ - validate username, password and appKey (cannot be empty)
+	$[not count username;.lg.e[`login;"Username cannot be empty. Please check code/settings/requestor.q"];
+		not count password;.lg.e[`login;"Password cannot be empty. Please check code/settings/requestor.q"];
+		not count appKey;.lg.e[`login;"AppKey cannot be empty. Please check code/settings/requestor.q"];()];
+	.lg.o[`login;"Attempting to login to betfair api"];
+	loginResp: callApi[`login;jsonStringParam `username`password!(username;password)];
+	$["SUCCESS" ~ respstr:loginResp`loginStatus;
+		[.lg.o[`login;"Login successful: ",st:loginResp`sessionToken];sessionToken:: st];
+		.lg.e[`login;"Login failed. Response was: ",respstr]];};
 // function to keep session alive alive
 keepAlive:{[]
 	data:callApi[`keepAlive;""];
@@ -167,10 +180,12 @@ logout:{[]
 		[.lg.o[`logout;"Logout call has succeeded : ",data`token]; sessionToken:: ""];
 		.lg.e[`logout;"Logout call has failed.  The error was : ",data`error]]}
 // add logout call to .z.exit 
-.z.exit:{[f;x]
-	logout[];
-	f[x]
-	}[@[value;`.z.exit;{{}}]]
+if[logoutonexit;
+	.z.exit:{[f;x]
+		logout[];
+		f[x]
+		}[@[value;`.z.exit;{{}}]]];
+		
 // run initialization
 \d .
 .lg.o[`init;"Loading schema file"];
