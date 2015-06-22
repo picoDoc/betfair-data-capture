@@ -98,7 +98,7 @@ callGetMarketData:{[id]
 	@[getMarketData;id;e]};
 
 // function to get meta data about given market id
-getMetaData:{[marketids] delete totalMatched from distinct ungroup getMarketCatalogue[0N;marketids;()]}
+getMetaData:{[marketids] delete totalMatched from distinct ungroup getMarketCatalogue[0N;marketids;();()]}
 // update the global metadata table
 addMetaData:{[marketids]
 	/ - call the api for meta data on marketids
