@@ -141,7 +141,7 @@ callApi:{[typ;req]
 	/ - build the command line params to be passed to the python script
 	cmdparams: " " sv (string typ;appKey;sessionToken;req);
 	/ - submit the request via the python handler
-	data: first system " " sv ("python","w ".os.NT; .os.pth getenv[`KDBBIN],"/getData.py";cmdparams);
+	data: first system " " sv ("python"," w".os.NT; .os.pth getenv[`KDBBIN],"/getData.py";cmdparams);
 	/ - check for errors returned by python handler
 	if["ERROR:" ~ 6#data;.lg.e[`callApi;data]];
 	/ - convert the json string into a q dictionary
