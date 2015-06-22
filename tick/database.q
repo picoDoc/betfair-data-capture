@@ -1,28 +1,32 @@
 trade:([]
   time:`timestamp$();
   sym:`$();
-  marketName:`$();
-  selectionId:`$();
-  id:`$();
-  timezone:`$();
-  openDate:`$();
-  eventType:`$();
+  selectionId:`int$();
   price:`float$();
-  size:`float$()
- );
+  size:`float$());
 
 quote:([]
   time:`timestamp$();
   sym:`$();
-  marketName:`$();
-  selectionId:`$();
-  id:`$();
-  timezone:`$();
-  openDate:`$();
-  eventType:`$();
-  price:`float$();
-  size:`float$();
-  side:`$()
- );
+  selectionId:`int$();
+  backs: ();
+  lays: ();
+  bsizes: ();
+  lsizes:());
+ 
+metadata:([]
+	time:`timestamp$();
+	sym:`symbol$();
+	eventTypeId:`int$();
+	eventTypeName:`symbol$();
+	competitionId:`int$();
+	competitionName: `symbol$();
+	marketName: `symbol$();
+	eventId: `int$();
+	eventName: `symbol$();
+	timezone: `symbol$();
+	openDate: `timestamp$();
+	selectionName: `symbol$();
+	selectionId: `int$());
 
 

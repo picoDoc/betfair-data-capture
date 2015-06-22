@@ -15,12 +15,8 @@ appKey:@[value;`appKey;""];			/ - betfair application key
 datacfgfile:@[value;`datacfgfile;hsym `$getenv[`KDBCONFIG],"/requestor.csv"]	/ - location of the requestor config file
 mktdatatimerf:@[value;`mktdatatimerf;0D00:00:02]				/ - how often the timer will check if it needs to poll for market data
 
-// schemas 
-metadata:([eventTypeId: `int$();eventId: `int$();marketId: `symbol$();selectionId: `int$()] 
-		eventTypeName: `symbol$();competitionId: `int$();competitionName: `symbol$(); marketName: `symbol$(); 
-		eventName: `symbol$();timezone: `symbol$();openDate: `timestamp$(); selectionName: `symbol$());
-		
-// init function
+	
+// initialization function
 init:{[]
 	.lg.o[`init;"Running initialization function"];
 	sessionToken:: "";
@@ -29,43 +25,43 @@ init:{[]
 	.timer.rep[.proc.cp[];0Wp;keepalivetime;(`.requestor.keepAlive;`);2h;"refresh the Session Token";1b]; / refresh it every 6 hrs
 	$[all n:null pubprocs;
 		.lg.o[`init;"pubprocs has not been configured, this process will not publish data"];
-		initsubscription[n]]}; 
+		initSubscription[n]]}; 
 
-initsubscription:{[n]
-	.lg.o[`initsubscription;"Making connection the tickerplant"];.servers.startup[];			/ connect to the discovery and tp processes
+initSubscription:{[n]
+	.lg.o[`initSubscription;"Making connection the tickerplant"];.servers.startup[];			/ connect to the discovery and tp processes
 	while[count[pubprocs where not n] > count handles: .servers.getservers[`name;pubprocs;()!();1b;1b]`w;	/ keep looping around until all the connections have been established
 		.os.sleep[pubconnsleepintv];.servers.startup[]];  						/ sleep and then run the servers startup code again (to make connection to discovery)
 	@[`.requestor;`tphs;:;handles];
-	.lg.o[`initsubscription;"Setting timer to poll betfair api for data"];
-	@[`.requestor;`cfg;:;loadconfigfile[]];
+	.lg.o[`initSubscription;"Setting timer to poll betfair api for data"];
+	@[`.requestor;`cfg;:;loadConfigFile[]];
+	/ - publish meta data for each of the markets that have been loaded
+	if[count cfg;publishMetadata[cfg`marketId]];
 	/ - set timer function to check cfg for whether to poll for data
-	.timer.rep[.proc.cp[];0Wp;mktdatatimerf;(`.requestor.pollformarketdata;`);2h;"check if to poll for market data";0b]}
+	.timer.rep[.proc.cp[];0Wp;mktdatatimerf;(`.requestor.pollForMarketData;`);2h;"check if to poll for market data";0b]}
 	
 // function to load the config file
-loadconfigfile:{[] 
+loadConfigFile:{[] 
 	/ - read in the config file
-	data: ("*S**N"; enlist ",") 0: read0 datacfgfile;
+	data: delete from (("*S**N"; enlist ",") 0: datacfgfile) where null marketId;
 	/ - parse the start and end time columns
-	data: update start: .requestor.parsetimecols[start], .requestor.parsetimecols[end] from data;
-	/ - publish meta data for each of the markets that have been loaded
-	publishmetadata[data`marketId];
+	data: update start: .requestor.parseTimeCols[start], .requestor.parseTimeCols[end] from data;
 	/ - tag on next run times for each market
 	update nextruntime: .proc.cp[] + interval from data}
 	
 // function to convert strings into timestamps, this is to allow functional configs such as .z.p, .proc.cp[] etc...
-parsetimecols:{[x] `timestamp$ value each x}
+parseTimeCols:{[x] `timestamp$ value each x}
 // function to identify when to poll for data for each market
-pollformarketdata:{[]
+pollForMarketData:{[]
 	now: .proc.cp[];
 	/ - if there is nothing to be run now, then just escape
 	if[not count t:select from cfg where end > now, nextruntime <= now;:()]; 
 	/ - cut the marketIds into groups of 6 (6 is the maximum allowable by the Betfair API otherwise a TOO_MUCH_DATA error will be returned)
-	getMarketData each 6 cut t`marketId;
+	publishMarketData each 6 cut t`marketId;
 	/ - update the next run time 
 	update nextruntime:.proc.cp[]+interval from `.requestor.cfg where end > now, nextruntime <= now}
 // delete market id from requestor config
-delfromcfg:{[ids] 
-	.lg.o[`delfromcfg;"Removing id(s) from cfg : ","," sv string ids:(),ids];
+delFromCfg:{[ids] 
+	.lg.o[`delFromCfg;"Removing id(s) from cfg : ","," sv string ids:(),ids];
 	delete from `.requestor.cfg where marketId in ids}
 	
 // function to convert kdb dictionary into a string which can be passed as a command line parameter
@@ -78,29 +74,32 @@ jsonStringParam:{[api;d]
 	$[.os.NT;ssr[jsonstr;"\"";"\\\""];"'",jsonstr,"'"]}
 
 // function to get market data and send to tp for a given marketid
-getMarketData:{[id]
+publishMarketData:{[id]
 	/ - get the market book data ( trades and quotes )
 	data: getMarketBook[id:(),id]`result;
 	/ - make the keys/columns homogeneous for each marketid (so dictionaries will collapse into a queriable table)
 	data: {x!y[x]}[raze distinct key each data;] each data;
 	/ - remove "CLOSED" markets
 	if[ any clsbool: "CLOSED" ~/: data`status;
-		delfromcfg `$data[`marketId] where clsbool;	/ - remove closed markets from cfg so we don't poll for them again
+		delFromCfg `$data[`marketId] where clsbool;	/ - remove closed markets from cfg so we don't poll for them again
 		if[not count data: delete from data where clsbool;:()]];
-	r: ungroup select `$marketId, selectionId:runners @'' `selectionId, ex:runners @'' `ex from data;
-	/ - check if the market id exists in the metadata table, if not then get the meta data from betfair
-	if[not all bools:(mdids: distinct r`marketId) in exec marketId from metadata; addMetaData[mdids where not bools]];
+	r: ungroup select sym:`$marketId, selectionId:`int$runners @'' `selectionId, ex:runners @'' `ex from data;
 	/ - format the trades from the market book data
-	trades:formatTrades[id;r];
+	trades: ungroup select sym, selectionId, price:.requestor.extractPricesSizes[`tradedVolume`price;ex], size:.requestor.extractPricesSizes[`tradedVolume`size;ex] from r;
 	/ - format the quotes from the market book data
-	quotes:formatQuotes[id;r];
+	quotes: select sym, selectionId, backs: .requestor.extractPricesSizes[`availableToBack`price;ex], lays: `s#'.requestor.extractPricesSizes[`availableToLay`price;ex],
+			bsizes: .requestor.extractPricesSizes[`availableToBack`size;ex],lsizes: .requestor.extractPricesSizes[`availableToLay`size;ex] from r;
 	/ - publish the data to the tickerplant
 	pubDataToTp'[`trade`quote;(trades;quotes)]};
+
+// function for pulling out prices and size of quotes and trades
+extractPricesSizes:{[x;y] @[@/[;x];;`float$()] each y}
 	
 // function to publish meta data to downstream processes	
-publishmetadata:{[ids]
-
-	}
+publishMetadata:{[ids]
+	if[not count t:getMetadata[ids];:()]; / - escape if not meta data returned
+	/ - publish the data to the tickerplant
+	pubDataToTp[`metadata; (cols[`. `metadata] except `time) # t]}
  
 // function to get quote and trade data for a given market
 getMarketBook:{[id]
@@ -113,45 +112,11 @@ getMarketBook:{[id]
 	/ - call the api to get the data
 	callApi[`data;reqd]}	
 
-// functions to format trade and quote data returned from betfair
-formatTrades:{[id;data]
-	/ - extract the traded volumes
-	trades:raze {if[98h<>type t:x[`ex;`tradedVolume];:()];update marketId: x`marketId, selectionId: `int$ x`selectionId from t}each data;
-	/ - join on metadata
-	joinMetaData[id;`trade;trades]}
-formatQuotes:{[id;data]
-	/ - extract the back quotes
-	quotes:raze {if[98h<>type t:x[`ex;`availableToBack];:()];update marketId: x`marketId, selectionId: `int$ x`selectionId,side:`back from t}each data;
-	/ - extract the lay quotes
-	quotes,:raze {if[98h<>type t:x[`ex;`availableToLay];:()];update marketId: x`marketId, selectionId: `int$ x`selectionId,side:`lay from t}each data; 
-	/ - join on metadata
-	joinMetaData[id;`quote;quotes]}
- 
 // function to data to the tickerplant
 pubDataToTp:{[tabname;data] neg[tphs] @\: (`.u.upd;tabname;$[type data;value flip 0!data;data])}
 
-// function to replace selectionId with names, add in meta data, reorder cols
-joinMetaData:{[id;tabname;data]
-	/ - join on the meta data
-	data: data lj 
-	    2!select selectionId, marketId, selectionName, sym: eventName, marketName, timezone, `$string openDate, eventType: eventTypeName, id:`$string eventId 
-	    from metadata;
-	/ - reorder and return the data
-	(cols[`. tabname] except `time) # update selectionId:selectionName from data} 
-
-// error trapped call to getMarketData
-callGetMarketData:{[id]
-	e:{.lg.e[`APING_CALL_FAILED;"call to betfair failed with error ",x]};
-	@[getMarketData;id;e]};
-
 // function to get meta data about given market id
-getMetaData:{[marketids] delete totalMatched from distinct ungroup getMarketCatalogue[0N;marketids;();()]}
-// update the global metadata table
-addMetaData:{[marketids]
-	/ - call the api for meta data on marketids
-	data: getMetaData[marketids];
-	/ - upsert this into the global metadata table
-	`.requestor.metadata upsert data}
+getMetadata:{[marketids] distinct ungroup getMarketCatalogue[0N;marketids;();()]}
 
 // function to get a table of all the event types
 getEventTypes:{[]
@@ -159,6 +124,8 @@ getEventTypes:{[]
 	select eventid: `$eventType @' `id, eventname: `$eventType @' `name, marketcount: marketCount from data`result}
 
 // function to return a table of markets for a particular sports id
+marketCatalogue:([] eventTypeId:`int$();eventTypeName:`symbol$();competitionId:`int$();competitionName:`symbol$();sym:`symbol$();marketName:`symbol$();
+		totalMatched:`float$();eventId: `int$();eventName: `symbol$();timezone: `symbol$();openDate: `timestamp$();selectionName: ();selectionId: ())
 getMarketCatalogue:{[sportids;marketids;text;inplay]
 	/ - filter dictionary
 	filter: ()!();
@@ -171,12 +138,12 @@ getMarketCatalogue:{[sportids;marketids;text;inplay]
 	/ - build the json req dictionary
 	req: jsonStringParam[`listMarketCatalogue;paramd];
 	/ - call the api
-	data: callApi[`data;req][`result];
+	if[ not count data: callApi[`data;req][`result];0#marketCatalogue];	/ - if nothing returned, then escape returning an empty schema
 	/ - some markets don't return anything for competition 
 	data:{y!x[y]}[;`eventType`competition`marketId`totalMatched`marketName`event`runners] each data;
 	/ - return a table with info for the markets
 	select eventTypeId: "I" $ eventType @' `id, eventTypeName: `$ eventType @' `name,    competitionId: "I" $ competition @' `id, competitionName: `$ competition @' `name,
-		marketId: `$ marketId, `$ marketName, totalMatched, eventId: "I" $ event @' `id, eventName: `$ event @' `name, timezone: `$event @' `timezone,
+		sym: `$ marketId, `$ marketName, totalMatched, eventId: "I" $ event @' `id, eventName: `$ event @' `name, timezone: `$event @' `timezone,
 		openDate: "P" $ -1_ 'event @' `openDate, selectionName: `$runners @'' `runnerName,  selectionId: `int$ runners @'' `selectionId
 		from data}
 
