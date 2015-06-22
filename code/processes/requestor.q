@@ -8,6 +8,12 @@ pubprocs:@[value;`pubprocs;(),`tickerplant1]	/ - list of processes (names not ty
 						/ - the process will not publish data and will used to poll for ad-hoc data (i.e. query via gw)
 pubconnsleepintv:@[value;`pubconnsleepintv;5]	/ - number of seconds to sleep before re-attempting to connection to downstream processes
 
+username:@[value;`username;""];			/ - betfair username
+password:@[value;`password;""];			/ - betfair password
+appKey:@[value;`appKey;""];			/ - betfair application key
+
+datacfgfile:@[value;`datacfgfile;hsym `$getenv[`KDBCONFIG],"/requestor.csv"]	/ - location of the requestor config file
+mktdatatimerf:@[value;`mktdatatimerf;0D00:00:02]				/ - how often the timer will check if it needs to poll for market data
 
 // schemas 
 metadata:([eventTypeId: `int$();eventId: `int$();marketId: `symbol$();selectionId: `int$()] 
@@ -20,41 +26,81 @@ init:{[]
 	sessionToken:: "";
 	login[];						/ login to the betfair api
 	.lg.o[`init;"Setting up timer to refresh session"];
-	.timer.rep[.z.p;0Wp;keepalivetime;(`.requestor.keepAlive;`);2h;"refresh the Session Token";1b]; / refresh it every 6 hrs
-	.lg.o[`init;"Making connection the tickerplant"];
-	.servers.startup[];						/ connect to the discovery and tp processes
-	if[not all n:null pubprocs;
-		while[count[pubprocs where not n] > count handles: .servers.getservers[`name;pubprocs;()!();1b;1b]`w;
-			.os.sleep[pubconnsleepintv];
-			/-run the servers startup code again (to make connection to discovery)
-			.servers.startup[]];
-		@[`.requestor;`tphs;:;handles];
-		.lg.o[`init;"Setting timer to poll betfair api for data"]; 
-		{.timer.rep[x`start;x`end;x`interval;(`.requestor.callGetMarketData;x`marketId);2h;"get betfair data";0b]}each markets]}; / add a job for each market in config
+	.timer.rep[.proc.cp[];0Wp;keepalivetime;(`.requestor.keepAlive;`);2h;"refresh the Session Token";1b]; / refresh it every 6 hrs
+	$[all n:null pubprocs;
+		.lg.o[`init;"pubprocs has not been configured, this process will not publish data"];
+		initsubscription[n]]}; 
 
+initsubscription:{[n]
+	.lg.o[`initsubscription;"Making connection the tickerplant"];.servers.startup[];			/ connect to the discovery and tp processes
+	while[count[pubprocs where not n] > count handles: .servers.getservers[`name;pubprocs;()!();1b;1b]`w;	/ keep looping around until all the connections have been established
+		.os.sleep[pubconnsleepintv];.servers.startup[]];  						/ sleep and then run the servers startup code again (to make connection to discovery)
+	@[`.requestor;`tphs;:;handles];
+	.lg.o[`initsubscription;"Setting timer to poll betfair api for data"];
+	@[`.requestor;`cfg;:;loadconfigfile[]];
+	/ - set timer function to check cfg for whether to poll for data
+	.timer.rep[.proc.cp[];0Wp;mktdatatimerf;(`.requestor.pollformarketdata;`);2h;"check if to poll for market data";0b]}
+	
+// function to load the config file
+loadconfigfile:{[] 
+	/ - read in the config file
+	data: ("*S**N"; enlist ",") 0: read0 datacfgfile;
+	/ - parse the start and end time columns
+	data: update start: .requestor.parsetimecols[start], .requestor.parsetimecols[end] from data;
+	/ - publish meta data for each of the markets that have been loaded
+	publishmetadata[data`marketId];
+	/ - tag on next run times for each market
+	update nextruntime: .proc.cp[] + interval from data}
+	
+// function to convert strings into timestamps, this is to allow functional configs such as .z.p, .proc.cp[] etc...
+parsetimecols:{[x] `timestamp$ value each x}
+// function to identify when to poll for data for each market
+pollformarketdata:{[]
+	now: .proc.cp[];
+	/ - if there is nothing to be run now, then just escape
+	if[not count t:select from cfg where end > now, nextruntime <= now;:()]; 
+	/ - cut the marketIds into groups of 6 (6 is the maximum allowable by the Betfair API otherwise a TOO_MUCH_DATA error will be returned)
+	getMarketData each 6 cut t`marketId;
+	/ - update the next run time 
+	update nextruntime:.proc.cp[]+interval from `.requestor.cfg where end > now, nextruntime <= now}
+// delete market id from requestor config
+delfromcfg:{[ids] 
+	.lg.o[`delfromcfg;"Removing id(s) from cfg : ","," sv string ids:(),ids];
+	delete from `.requestor.cfg where marketId in ids}
+	
 // function to convert kdb dictionary into a string which can be passed as a command line parameter
-jsonStringParam:{[d]
+jsonStringParam:{[api;d]
+	if[not null api;d:`jsonrpc`method`params`id!("2.0";"SportsAPING/v1.0/",string api;d;1)];
 	/ - convert the dictionary into a json string
 	jsonstr: .j.j[d];
 	/ - do some platform specific formatting of the string so that it can be 
 	/ - passed as a command line parameter on both DOS ans Unix-like systems
 	$[.os.NT;ssr[jsonstr;"\"";"\\\""];"'",jsonstr,"'"]}
- 
+
 // function to get market data and send to tp for a given marketid
 getMarketData:{[id]
-	/ - check if the market id exists in the metadata table, if not then get the meta data from betfair
-	if[not all bools:(id:(),id) in exec marketId from metadata; addMetaData[id where not bools]];
 	/ - get the market book data ( trades and quotes )
-	data: getMarketBook[id]`result;
+	data: getMarketBook[id:(),id]`result;
 	/ - make the keys/columns homogeneous for each marketid (so dictionaries will collapse into a queriable table)
 	data: {x!y[x]}[raze distinct key each data;] each data;
+	/ - remove "CLOSED" markets
+	if[ any clsbool: "CLOSED" ~/: data`status;
+		delfromcfg `$data[`marketId] where clsbool;	/ - remove closed markets from cfg so we don't poll for them again
+		if[not count data: delete from data where clsbool;:()]];
 	r: ungroup select `$marketId, selectionId:runners @'' `selectionId, ex:runners @'' `ex from data;
+	/ - check if the market id exists in the metadata table, if not then get the meta data from betfair
+	if[not all bools:(mdids: distinct r`marketId) in exec marketId from metadata; addMetaData[mdids where not bools]];
 	/ - format the trades from the market book data
 	trades:formatTrades[id;r];
 	/ - format the quotes from the market book data
 	quotes:formatQuotes[id;r];
 	/ - publish the data to the tickerplant
 	pubDataToTp'[`trade`quote;(trades;quotes)]};
+	
+// function to publish meta data to downstream processes	
+publishmetadata:{[ids]
+
+	}
  
 // function to get quote and trade data for a given market
 getMarketBook:{[id]
@@ -63,7 +109,7 @@ getMarketBook:{[id]
 	/ - parameter dictionary (includes priceP dictionary)
 	paramd:`marketIds`priceProjection`orderProjection`matchProjection!(string (),id;priceP;"ALL";"ROLLED_UP_BY_PRICE");
 	/ - main dictionary (includes paramd dictionary)
-	reqd: buildJsonRpcDict[`listMarketBook;paramd];
+	reqd: jsonStringParam[`listMarketBook;paramd];
 	/ - call the api to get the data
 	callApi[`data;reqd]}	
 
@@ -107,12 +153,9 @@ addMetaData:{[marketids]
 	/ - upsert this into the global metadata table
 	`.requestor.metadata upsert data}
 
-buildJsonRpcDict:{[api;paramd]
-	jsonStringParam `jsonrpc`method`params`id!("2.0";"SportsAPING/v1.0/",string api;paramd;1)}
- 
 // function to get a table of all the event types
 getEventTypes:{[]
-	data: callApi[`data;buildJsonRpcDict[`listEventTypes;enlist[`filter]!enlist ()!()]];
+	data: callApi[`data;jsonStringParam[`listEventTypes;enlist[`filter]!enlist ()!()]];
 	select eventid: `$eventType @' `id, eventname: `$eventType @' `name, marketcount: marketCount from data`result}
 
 // function to return a table of markets for a particular sports id
@@ -126,7 +169,7 @@ getMarketCatalogue:{[sportids;marketids;text;inplay]
 	/ - paramd dictionary
 	paramd:`filter`maxResults`marketProjection`sort!(filter;200;("COMPETITION";"EVENT";"EVENT_TYPE";"RUNNER_DESCRIPTION";"RUNNER_METADATA");`MAXIMUM_TRADED);
 	/ - build the json req dictionary
-	req: buildJsonRpcDict[`listMarketCatalogue;paramd];
+	req: jsonStringParam[`listMarketCatalogue;paramd];
 	/ - call the api
 	data: callApi[`data;req][`result];
 	/ - some markets don't return anything for competition 
@@ -142,7 +185,7 @@ callApi:{[typ;req]
 	/ - build the command line params to be passed to the python script
 	cmdparams: " " sv (string typ;appKey;sessionToken;req);
 	/ - submit the request via the python handler
-	data: first system " " sv ("python","w ".os.NT; .os.pth getenv[`KDBBIN],"/getData.py";cmdparams);
+	data: first system " " sv ("python"," w".os.NT; .os.pth getenv[`KDBBIN],"/getData.py";cmdparams);
 	/ - check for errors returned by python handler
 	if["ERROR:" ~ 6#data;.lg.e[`callApi;data]];
 	/ - convert the json string into a q dictionary
@@ -161,7 +204,7 @@ login:{[]
 		not count password;.lg.e[`login;"Password cannot be empty. Please check code/settings/requestor.q"];
 		not count appKey;.lg.e[`login;"AppKey cannot be empty. Please check code/settings/requestor.q"];()];
 	.lg.o[`login;"Attempting to login to betfair api"];
-	loginResp: callApi[`login;jsonStringParam `username`password!(username;password)];
+	loginResp: callApi[`login;jsonStringParam[`;`username`password!(username;password)]];
 	$["SUCCESS" ~ respstr:loginResp`loginStatus;
 		[.lg.o[`login;"Login successful: ",st:loginResp`sessionToken];sessionToken:: st];
 		.lg.e[`login;"Login failed. Response was: ",respstr]];};
