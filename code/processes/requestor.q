@@ -33,16 +33,16 @@ initSubscription:{[n]
 		.os.sleep[pubconnsleepintv];.servers.startup[]];  						/ sleep and then run the servers startup code again (to make connection to discovery)
 	@[`.requestor;`tphs;:;handles];
 	.lg.o[`initSubscription;"Setting timer to poll betfair api for data"];
-	@[`.requestor;`cfg;:;loadConfigFile[]];
+	@[`.requestor;`cfg;:;1!loadConfigFile[]];
 	/ - publish meta data for each of the markets that have been loaded
-	if[count cfg;publishMetadata[cfg`marketId]];
+	if[count cfg;publishMetadata[(0!cfg)`marketId]];
 	/ - set timer function to check cfg for whether to poll for data
 	.timer.rep[.proc.cp[];0Wp;mktdatatimerf;(`.requestor.pollForMarketData;`);2h;"check if to poll for market data";0b]}
 	
 // function to load the config file
 loadConfigFile:{[] 
 	/ - read in the config file
-	data: delete from (("*S**N"; enlist ",") 0: datacfgfile) where null marketId;
+	data: delete from (("S***N"; enlist ",") 0: datacfgfile) where null marketId;
 	/ - parse the start and end time columns
 	data: update start: .requestor.parseTimeCols[start], .requestor.parseTimeCols[end] from data;
 	/ - tag on next run times for each market
@@ -56,13 +56,20 @@ pollForMarketData:{[]
 	/ - if there is nothing to be run now, then just escape
 	if[not count t:select from cfg where end > now, nextruntime <= now;:()]; 
 	/ - cut the marketIds into groups of 6 (6 is the maximum allowable by the Betfair API otherwise a TOO_MUCH_DATA error will be returned)
-	publishMarketData each 6 cut t`marketId;
+	publishMarketData each 6 cut (0!t)`marketId;
 	/ - update the next run time 
 	update nextruntime:.proc.cp[]+interval from `.requestor.cfg where end > now, nextruntime <= now}
 // delete market id from requestor config
 delFromCfg:{[ids] 
 	.lg.o[`delFromCfg;"Removing id(s) from cfg : ","," sv string ids:(),ids];
 	delete from `.requestor.cfg where marketId in ids}
+	
+addSubscription:{[competitionName;eventName;name;id;end;interval]
+    if[null id;:()];
+    / - update the .requestor.cfg table
+    `.requestor.cfg upsert ([] marketId: enlist id;market: enlist " - " sv (competitionName;eventName;name);start: enlist .proc.cp[];end: enlist end;interval: enlist interval;nextruntime: enlist .proc.cp[]);
+    / - publish meta data for new id(s)
+    publishMetadata[id]}
 	
 // function to convert kdb dictionary into a string which can be passed as a command line parameter
 jsonStringParam:{[api;d]
@@ -138,7 +145,7 @@ getMarketCatalogue:{[sportids;marketids;text;inplay]
 	/ - build the json req dictionary
 	req: jsonStringParam[`listMarketCatalogue;paramd];
 	/ - call the api
-	if[ not count data: callApi[`data;req][`result];0#marketCatalogue];	/ - if nothing returned, then escape returning an empty schema
+	if[ not count data: callApi[`data;req][`result];:0#marketCatalogue];	/ - if nothing returned, then escape returning an empty schema
 	/ - some markets don't return anything for competition 
 	data:{y!x[y]}[;`eventType`competition`marketId`totalMatched`marketName`event`runners] each data;
 	/ - return a table with info for the markets
