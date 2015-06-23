@@ -3,7 +3,7 @@
 
 // Default Parameters
 logoutonexit:@[value;`logoutonexit;1b]		/ - logout of betfair session when the process is shutdown
-keepalivetime:@[value;`keepalivetime;0D06]	/ - send a keep alive every X
+keepalivetime:@[value;`keepalivetime;0D03]	/ - send a keep alive every X
 pubprocs:@[value;`pubprocs;(),`tickerplant1]	/ - list of processes (names not types) to publish data to.  If null symbol, then the 
 						/ - the process will not publish data and will used to poll for ad-hoc data (i.e. query via gw)
 pubconnsleepintv:@[value;`pubconnsleepintv;5]	/ - number of seconds to sleep before re-attempting to connection to downstream processes
@@ -67,13 +67,13 @@ delFromCfg:{[ids]
 	.lg.o[`delFromCfg;"Removing id(s) from cfg : ","," sv string ids:(),ids];
 	delete from `.requestor.cfg where marketId in ids}
 	
-addSubscription:{[competitionName;eventName;name;id;end;interval]
-    if[null id;:()];
-    / - update the .requestor.cfg table
-    `.requestor.cfg upsert ([] marketId: enlist id;market: enlist " - " sv (competitionName;eventName;name);start: enlist .proc.cp[];end: enlist end;interval: enlist interval;nextruntime: enlist .proc.cp[]);
-    / - publish meta data for new id(s)
-    publishMetadata[id]}
-	
+addSubscription:{[name;id;end;interval]
+	if[all null id:(),id;:()];
+	/ - update the .requestor.cfg table
+	`.requestor.cfg upsert ([] marketId: id;market: {$[10h = type[x];enlist x;x]} name;start: .proc.cp[];end: end;interval: interval;nextruntime: .proc.cp[]);
+	/ - publish meta data for new id(s)
+	publishMetadata[id]}
+
 // function to convert kdb dictionary into a string which can be passed as a command line parameter
 jsonStringParam:{[api;d]
 	if[not null api;d:`jsonrpc`method`params`id!("2.0";"SportsAPING/v1.0/",string api;d;1)];
@@ -101,6 +101,8 @@ publishMarketData:{[id]
 	/ - format the quotes from the market book data
 	quotes: select sym, selectionId, backs: .requestor.extractPricesSizes[`availableToBack`price;ex], lays: `s#'.requestor.extractPricesSizes[`availableToLay`price;ex],
 			bsizes: .requestor.extractPricesSizes[`availableToBack`size;ex],lsizes: .requestor.extractPricesSizes[`availableToLay`size;ex] from r;
+	/ - remove quotes that don't have data on either side
+	quotes: delete from quotes where all each 0 =(count'') flip (backs;lays);
 	/ - publish the data to the tickerplant
 	pubDataToTp'[`trade`quote;(trades;quotes)]};
 
