@@ -34,6 +34,9 @@ initSubscription:{[n]
 	@[`.requestor;`tphs;:;handles];
 	.lg.o[`initSubscription;"Setting timer to poll betfair api for data"];
 	@[`.requestor;`cfg;:;1!loadConfigFile[]];
+	/ - set a global tradeSnapshot table, this is to be used for publishing traded deltas (because betfair only provides the 
+	/ - cumulative total traded volumes)
+	@[`.requestor;`tradeSnapshot;:;`sym`selectionId`price xkey delete time from `. `trade];	
 	/ - publish meta data for each of the markets that have been loaded
 	if[count cfg;publishMetadata[(0!cfg)`marketId]];
 	/ - set timer function to check cfg for whether to poll for data
@@ -93,11 +96,24 @@ publishMarketData:{[id]
 	r: ungroup select sym:`$marketId, selectionId:`int$runners @'' `selectionId, ex:runners @'' `ex from data;
 	/ - format the trades from the market book data
 	trades: ungroup select sym, selectionId, price:.requestor.extractPricesSizes[`tradedVolume`price;ex], size:.requestor.extractPricesSizes[`tradedVolume`size;ex] from r;
+	/ - get deltas for traded volumes (between the last tick and the current tick)
+	trades: calcTradedDelta[trades];
 	/ - format the quotes from the market book data
 	quotes: select sym, selectionId, backs: .requestor.extractPricesSizes[`availableToBack`price;ex], lays: `s#'.requestor.extractPricesSizes[`availableToLay`price;ex],
 			bsizes: .requestor.extractPricesSizes[`availableToBack`size;ex],lsizes: .requestor.extractPricesSizes[`availableToLay`size;ex] from r;
 	/ - publish the data to the tickerplant
 	pubDataToTp'[`trade`quote;(trades;quotes)]};
+
+// function to determine deltas in traded volumes
+calcTradedDelta:{[data]
+	/ - upsert any markets that aren't already present in tradesSnapshot
+	`.requestor.tradeSnapshot upsert select from data where not sym in exec sym from .requestor.tradeSnapshot;
+	/ - get the delta values, where size is greater than 0
+	deltaData: 0! select from ((`sym`selectionId`price xkey data) - tradeSnapshot) where size > 0;
+	/ - upsert the trade data (data) into tradeSnapshot to calculate the next tick
+	`.requestor.tradeSnapshot upsert data;
+	/ - return the delta data	
+	deltaData}
 
 // function for pulling out prices and size of quotes and trades
 extractPricesSizes:{[x;y] @[@/[;x];;`float$()] each y}
@@ -120,7 +136,7 @@ getMarketBook:{[id]
 	callApi[`data;reqd]}	
 
 // function to data to the tickerplant
-pubDataToTp:{[tabname;data] neg[tphs] @\: (`.u.upd;tabname;$[type data;value flip 0!data;data])}
+pubDataToTp:{[tabname;data] if[not count data;:()]; neg[tphs] @\: (`.u.upd;tabname;$[type data;value flip 0!data;data])}
 
 // function to get meta data about given market id
 getMetadata:{[marketids] distinct ungroup getMarketCatalogue[0N;marketids;();()]}
