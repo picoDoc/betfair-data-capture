@@ -192,10 +192,10 @@ getMarketCatalogue:{[sportids;marketids;text;inplay]
 	/ - some markets don't return anything for competition 
 	data:{y!x[y]}[;`eventType`competition`marketId`totalMatched`marketName`event`runners] each data;
 	/ - return a table with info for the markets
-	select eventTypeId: "I" $ eventType @' `id, eventTypeName: `$ eventType @' `name,    competitionId: "I" $ competition @' `id, competitionName: `$ competition @' `name,
-		sym: `$ marketId, `$ marketName, totalMatched, eventId: "I" $ event @' `id, eventName: `$ event @' `name, timezone: `$event @' `timezone,
-		openDate: "P" $ -1_ 'event @' `openDate, selectionName: `$runners @'' `runnerName,  selectionId: `int$ runners @'' `selectionId
-		from data}
+	select eventTypeId: "I" $ eventType @' `id, eventTypeName: `$ eventType @' `name,    competitionId: "I" $ {@[@[;x];;""]@'y}[`id;competition], 
+		competitionName: `$ {@[@[;x];;""]@'y}[`name;competition],sym: `$ marketId, `$ marketName, totalMatched, eventId: "I" $ event @' `id, 
+		eventName: `$ event @' `name, timezone: `$event @' `timezone,	openDate: "P" $ -1_ 'event @' `openDate, 
+		selectionName: `$runners @'' `runnerName,  selectionId: `int$ runners @'' `selectionId from data}
 
 // function to call the betfair api for data requests
 callApi:{[typ;req]

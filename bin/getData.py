@@ -57,10 +57,13 @@ else :
 	exit()
 
 if resp.status_code == 200:
-  resp_json = json.dumps(resp.json())
-  # deal with unicode characters (can't be handled in kdb+ < 3.3)
-  resp_json = resp_json.decode('unicode_escape').encode('ascii','ignore')
-  print(resp_json)
+	resp_json = json.dumps(resp.json())
+	# deal with unicode characters (can't be handled in kdb+ < 3.3)
+	if sys.version_info[0] > 2 :
+		resp_json = bytes(resp_json, "utf-8").decode("unicode_escape") 
+	else :
+		resp_json = resp_json.decode('unicode_escape').encode('ascii','ignore')
+	print(resp_json)
 else:
-  print('ERROR: Request failed, status code returned : ' + str(resp.status_code))
+	print('ERROR: Request failed, status code returned : ' + str(resp.status_code))
   
