@@ -17,6 +17,8 @@ mktdatatimerf:@[value;`mktdatatimerf;0D00:00:02]				/ - how often the timer will
 
 repubmetadatatime:@[value;`repubmetadatatime;0D00:00:01]	/ - republish metadata for active subscriptions so meta data for trades and quotes will 
 								/ - stored within the same date partition
+pythonex:@[value;`pythonex;"python"," w".os.NT]	/ - name of the python executable, defaults to python (osx and linux) or pythonw (windows)
+						/ - useful if you have multiple versions installed i.e. "python3.3"
 
 	
 // initialization function
@@ -45,7 +47,7 @@ initSubscription:{[n]
 	/ - publish meta data for each of the markets that have been loaded
 	if[count cfg;publishMetadata[(0!cfg)`marketId]];
 	/ - set timer function to check cfg for whether to poll for data
-	.timer.rep[.proc.cp[];0Wp;mktdatatimerf;(`.requestor.pollForMarketData;`);2h;"check if to poll for market data";0b];
+	.timer.rep[.proc.cp[];0Wp;mktdatatimerf;(`.requestor.pollForMarketDataErrorTrap;`);2h;"check if to poll for market data";0b];
 	/ - set timer function to re-publish metadata after the system has rolled}
 	.timer.rep[.proc.cd[] + repubmetadatatime;0Wp;1D;(`.requestor.republishMetadata;`);2h;"republish metadata";0b]}
 	
@@ -69,6 +71,8 @@ pollForMarketData:{[]
 	publishMarketData each 6 cut (0!t)`marketId;
 	/ - update the next run time 
 	update nextruntime:.proc.cp[]+interval from `.requestor.cfg where end > now, nextruntime <= now}
+// error trap the pollForMarketData
+pollForMarketDataErrorTrap:{[] @[pollForMarketData;`;{.lg.e[`pollForMarketData;"Function call failed with error code : ",x]}]}
 // delete market id from requestor config
 delFromCfg:{[ids] 
 	.lg.o[`delFromCfg;"Removing id(s) from cfg : ","," sv string ids:(),ids];
