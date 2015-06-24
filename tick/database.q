@@ -28,5 +28,11 @@ metadata:([]
 	openDate: `timestamp$();
 	selectionName: `symbol$();
 	selectionId: `int$());
+	
+marketstatus:([] 
+	time:`timestamp$();
+	sym:`symbol$();
+	status: `symbol$();
+	inplay: `boolean$())
 
 

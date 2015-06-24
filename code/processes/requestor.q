@@ -15,6 +15,9 @@ appKey:@[value;`appKey;""];			/ - betfair application key
 datacfgfile:@[value;`datacfgfile;hsym `$getenv[`KDBCONFIG],"/requestor.csv"]	/ - location of the requestor config file
 mktdatatimerf:@[value;`mktdatatimerf;0D00:00:02]				/ - how often the timer will check if it needs to poll for market data
 
+repubmetadatatime:@[value;`repubmetadatatime;0D00:00:01]	/ - republish metadata for active subscriptions so meta data for trades and quotes will 
+								/ - stored within the same date partition
+
 	
 // initialization function
 init:{[]
@@ -37,10 +40,14 @@ initSubscription:{[n]
 	/ - set a global tradeSnapshot table, this is to be used for publishing traded deltas (because betfair only provides the 
 	/ - cumulative total traded volumes)
 	@[`.requestor;`tradeSnapshot;:;`sym`selectionId`price xkey delete time from `. `trade];	
+	/ - set a global marketstatusSnapshot table
+	@[`.requestor;`marketstatusSnapshot;:;`sym xkey delete time from `. `marketstatus];
 	/ - publish meta data for each of the markets that have been loaded
 	if[count cfg;publishMetadata[(0!cfg)`marketId]];
 	/ - set timer function to check cfg for whether to poll for data
-	.timer.rep[.proc.cp[];0Wp;mktdatatimerf;(`.requestor.pollForMarketData;`);2h;"check if to poll for market data";0b]}
+	.timer.rep[.proc.cp[];0Wp;mktdatatimerf;(`.requestor.pollForMarketData;`);2h;"check if to poll for market data";0b];
+	/ - set timer function to re-publish metadata after the system has rolled}
+	.timer.rep[.proc.cd[] + repubmetadatatime;0Wp;1D;(`.requestor.republishMetadata;`);2h;"republish metadata";0b]}
 	
 // function to load the config file
 loadConfigFile:{[] 
@@ -89,6 +96,8 @@ publishMarketData:{[id]
 	data: getMarketBook[id:(),id]`result;
 	/ - make the keys/columns homogeneous for each marketid (so dictionaries will collapse into a queriable table)
 	data: {x!y[x]}[raze distinct key each data;] each data;
+	/ - get market status messages
+	marketstatuses: statusDelta[select sym: `$marketId, `$status, inplay from data];
 	/ - remove "CLOSED" markets
 	if[ any clsbool: "CLOSED" ~/: data`status;
 		delFromCfg `$data[`marketId] where clsbool;	/ - remove closed markets from cfg so we don't poll for them again
@@ -104,7 +113,7 @@ publishMarketData:{[id]
 	/ - remove quotes that don't have data on either side
 	quotes: delete from quotes where all each 0 =(count'') flip (backs;lays);
 	/ - publish the data to the tickerplant
-	pubDataToTp'[`trade`quote;(trades;quotes)]};
+	pubDataToTp'[`marketstatus`trade`quote;(marketstatuses;trades;quotes)]};
 
 // function to determine deltas in traded volumes
 calcTradedDelta:{[data]
@@ -117,6 +126,15 @@ calcTradedDelta:{[data]
 	/ - return the delta data	
 	deltaData}
 
+// function to determine if there is any change in status of a particular market, we only want to publish deltas
+statusDelta:{[data]
+	/ - get any status messages that aren't already present
+	deltaData: data except 0!marketstatusSnapshot;
+	/ - update the snapshot
+	`.requestor.marketstatusSnapshot upsert data;
+	/ - return the delta data
+	deltaData}
+
 // function for pulling out prices and size of quotes and trades
 extractPricesSizes:{[x;y] @[@/[;x];;`float$()] each y}
 	
@@ -125,6 +143,9 @@ publishMetadata:{[ids]
 	if[not count t:getMetadata[ids];:()]; / - escape if not meta data returned
 	/ - publish the data to the tickerplant
 	pubDataToTp[`metadata; (cols[`. `metadata] except `time) # t]}
+	
+// function to republish metadata for all active markets
+republishMetadata:{[] publishMetadata (0!cfg)`marketId}
  
 // function to get quote and trade data for a given market
 getMarketBook:{[id]
