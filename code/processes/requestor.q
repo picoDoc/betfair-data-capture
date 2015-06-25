@@ -4,6 +4,7 @@
 // Default Parameters
 logoutonexit:@[value;`logoutonexit;1b]		/ - logout of betfair session when the process is shutdown
 keepalivetime:@[value;`keepalivetime;0D03]	/ - send a keep alive every X
+logonretryintv:@[value;`logonretryintv;0D00:00:10];	/ - in the event of an unsuccessful logon, this is the amount of time to wait before retrying
 pubprocs:@[value;`pubprocs;(),`tickerplant1]	/ - list of processes (names not types) to publish data to.  If null symbol, then the 
 						/ - the process will not publish data and will used to poll for ad-hoc data (i.e. query via gw)
 pubconnsleepintv:@[value;`pubconnsleepintv;5]	/ - number of seconds to sleep before re-attempting to connection to downstream processes
@@ -25,7 +26,7 @@ pythonex:@[value;`pythonex;"python"," w".os.NT]	/ - name of the python executabl
 init:{[]
 	.lg.o[`init;"Running initialization function"];
 	sessionToken:: "";
-	login[];						/ login to the betfair api
+	login[0b];						/ login to the betfair api
 	.lg.o[`init;"Setting up timer to refresh session"];
 	.timer.rep[.proc.cp[];0Wp;keepalivetime;(`.requestor.keepAlive;`);2h;"refresh the Session Token";1b]; / refresh it every 6 hrs
 	$[all n:null pubprocs;
@@ -210,27 +211,36 @@ callApi:{[typ;req]
 	/ - check if the response has returned a result (otherwise it will have returned an error)
 	$[(`error in key data) and count data`error;
 		/ - pull the error code and log the error in the process log
-		.lg.e[`callApi;"ERROR response received from Betfair: ",data[`error;`data;`APINGException;`errorCode]];
+		[.lg.e[`callApi;"ERROR response received from Betfair: ",errorCode:data[`error;`data;`APINGException;`errorCode]];
+		if[errorCode ~ "INVALID_SESSION_INFORMATION"; login[0b]]]; / - if INVALID_SESSION_INFORMATION error returned, attempt to login again
 		:data]}
 
 // session management code		
 // function to get a new session token/id
-login:{[]
+login:{[retry]
 	/ - validate username, password and appKey (cannot be empty)
 	$[not count username;.lg.e[`login;"Username cannot be empty. Please check code/settings/requestor.q"];
 		not count password;.lg.e[`login;"Password cannot be empty. Please check code/settings/requestor.q"];
 		not count appKey;.lg.e[`login;"AppKey cannot be empty. Please check code/settings/requestor.q"];()];
-	.lg.o[`login;"Attempting to login to betfair api"];
-	loginResp: callApi[`login;jsonStringParam[`;`username`password!(username;password)]];
+	.lg.o[`login;"Attempting to login to betfair api..."];
+	/ - if the call to login throws an error, keep retrying 
+	loginResp: .[callApi;(`login;jsonStringParam[`;`username`password!(username;password)]);{[e] retrylogin[e]}];
+	if[retry;: loginResp]; / - if this is a retry attempt, then escape here
+	/ - if the login response was not SUCCESS, then retry
 	$["SUCCESS" ~ respstr:loginResp`loginStatus;
-		[.lg.o[`login;"Login successful: ",st:loginResp`sessionToken];sessionToken:: st];
-		.lg.e[`login;"Login failed. Response was: ",respstr]];};
+		[.lg.o[`login;"Login successful: ",st:loginResp`sessionToken]; sessionToken:: st];
+		[.lg.o[`login;"Login failed. Response was: ",respstr,". Retrying login in ",string logonretryintv ];
+		.os.sleep `int$`second$logonretryintv;.z.s[1b]]]}; 
+retrylogin:{[errMsg]
+		.lg.o[`login;"Login failed. Response was: ",respstr,". Retrying login in ",string logonretryintv];
+		.os.sleep `int$`second$logonretryintv; login[1b]}; / - sleep for while and then retry login
 // function to keep session alive alive
 keepAlive:{[]
 	data:callApi[`keepAlive;""];
 	$["SUCCESS" ~ data`status;
 		.lg.o[`keepAlive;"Keep Alive call has succeeded : ",data`token];
-		.lg.e[`keepAlive;"Keep Alive call failed. The error was : ",data`error]]}
+		/ - if it fails, log an error and login again
+		[.lg.e[`keepAlive;"Keep Alive call failed. The error was : ",data`error];login[0b]]]}
 // function to logout of session from betfair
 logout:{[]
 	/ - if there is no session token then escape
