@@ -229,8 +229,7 @@ login:{[retry]
 	/ - if the login response was not SUCCESS, then retry
 	$["SUCCESS" ~ respstr:loginResp`loginStatus;
 		[.lg.o[`login;"Login successful: ",st:loginResp`sessionToken]; sessionToken:: st];
-		[.lg.o[`login;"Login failed. Response was: ",respstr,". Retrying login in ",string logonretryintv ];
-		.os.sleep `int$`second$logonretryintv;.z.s[1b]]]}; 
+		retrylogin[respstr]]}; 
 retrylogin:{[errMsg]
 		.lg.o[`login;"Login failed. Response was: ",respstr,". Retrying login in ",string logonretryintv];
 		.os.sleep `int$`second$logonretryintv; login[1b]}; / - sleep for while and then retry login
