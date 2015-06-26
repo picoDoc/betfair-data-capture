@@ -16,8 +16,8 @@ appKey:@[value;`appKey;""];			/ - betfair application key
 datacfgfile:@[value;`datacfgfile;hsym `$getenv[`KDBCONFIG],"/requestor.csv"]	/ - location of the requestor config file
 mktdatatimerf:@[value;`mktdatatimerf;0D00:00:02]				/ - how often the timer will check if it needs to poll for market data
 
-repubmetadatatime:@[value;`repubmetadatatime;0D00:00:01]	/ - republish metadata for active subscriptions so meta data for trades and quotes will 
-								/ - stored within the same date partition
+repubrefdatatime:@[value;`repubrefdatatime;0D00:00:01]	/ - republish reference data for active subscriptions so ref data for trades and quotes will 
+							/ - stored within the same date partition
 pythonex:@[value;`pythonex;"python"," w".os.NT]	/ - name of the python executable, defaults to python (osx and linux) or pythonw (windows)
 						/ - useful if you have multiple versions installed i.e. "python3.3"
 
@@ -31,14 +31,14 @@ init:{[]
 	.timer.rep[.proc.cp[];0Wp;keepalivetime;(`.requestor.keepAlive;`);2h;"refresh the Session Token";1b]; / refresh it every 6 hrs
 	$[all n:null pubprocs;
 		.lg.o[`init;"pubprocs has not been configured, this process will not publish data"];
-		initSubscription[n]]}; 
+		initPublish[n]]}; 
 
-initSubscription:{[n]
-	.lg.o[`initSubscription;"Making connection the tickerplant"];.servers.startup[];			/ connect to the discovery and tp processes
+initPublish:{[n]
+	.lg.o[`initPublish;"Making connection the tickerplant"];.servers.startup[];				/ connect to the discovery and tp processes
 	while[count[pubprocs where not n] > count handles: .servers.getservers[`name;pubprocs;()!();1b;1b]`w;	/ keep looping around until all the connections have been established
 		.os.sleep[pubconnsleepintv];.servers.startup[]];  						/ sleep and then run the servers startup code again (to make connection to discovery)
 	@[`.requestor;`tphs;:;handles];
-	.lg.o[`initSubscription;"Setting timer to poll betfair api for data"];
+	.lg.o[`initPublish;"Setting timer to poll betfair api for data"];
 	@[`.requestor;`cfg;:;1!loadConfigFile[]];
 	/ - set a global tradeSnapshot table, this is to be used for publishing traded deltas (because betfair only provides the 
 	/ - cumulative total traded volumes)
@@ -50,7 +50,7 @@ initSubscription:{[n]
 	/ - set timer function to check cfg for whether to poll for data
 	.timer.rep[.proc.cp[];0Wp;mktdatatimerf;(`.requestor.pollForMarketDataErrorTrap;`);2h;"check if to poll for market data";0b];
 	/ - set timer function to re-publish metadata after the system has rolled}
-	.timer.rep[.proc.cd[] + repubmetadatatime;0Wp;1D;(`.requestor.republishMetadata;`);2h;"republish metadata";0b]}
+	.timer.rep[.proc.cd[] + repubrefdatatime;0Wp;1D;(`.requestor.republishRefData;`);2h;"republish metadata";0b]}
 	
 // function to load the config file
 loadConfigFile:{[] 
@@ -74,10 +74,13 @@ pollForMarketData:{[]
 	update nextruntime:.proc.cp[]+interval from `.requestor.cfg where end > now, nextruntime <= now}
 // error trap the pollForMarketData
 pollForMarketDataErrorTrap:{[] @[pollForMarketData;`;{.lg.e[`pollForMarketData;"Function call failed with error code : ",x]}]}
-// delete market id from requestor config
+// delete market id from requestor config and snapshot tables
 delFromCfg:{[ids] 
 	.lg.o[`delFromCfg;"Removing id(s) from cfg : ","," sv string ids:(),ids];
-	delete from `.requestor.cfg where marketId in ids}
+	delete from `.requestor.cfg where marketId in ids;
+	/ - removed id(s) from snapshot tables
+	delete from `.requestor.tradeSnapshot where sym in ids;
+	delete from `.requestor.marketstatusSnapshot where sym in ids}
 	
 addSubscription:{[name;id;end;interval]
 	if[all null id:(),id;:()];
@@ -149,8 +152,9 @@ publishMetadata:{[ids]
 	/ - publish the data to the tickerplant
 	pubDataToTp[`metadata; (cols[`. `metadata] except `time) # t]}
 	
-// function to republish metadata for all active markets
-republishMetadata:{[] publishMetadata (0!cfg)`marketId}
+// function to republish ref data for all active markets
+republishRefData:{[] publishMetadata (0!cfg)`marketId;
+			pubDataToTp[`marketstatus;0!marketstatusSnapshot]}
  
 // function to get quote and trade data for a given market
 getMarketBook:{[id]
