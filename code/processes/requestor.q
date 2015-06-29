@@ -14,6 +14,7 @@ password:@[value;`password;""];			/ - betfair password
 appKey:@[value;`appKey;""];			/ - betfair application key
 
 datacfgfile:@[value;`datacfgfile;hsym `$getenv[`KDBCONFIG],"/requestor.csv"]	/ - location of the requestor config file
+persistchges:@[value;`persistchges;1b]						/ - persist changes in cfg to the text cfg file
 mktdatatimerf:@[value;`mktdatatimerf;0D00:00:02]				/ - how often the timer will check if it needs to poll for market data
 
 repubrefdatatime:@[value;`repubrefdatatime;0D00:00:01]	/ - republish reference data for active subscriptions so ref data for trades and quotes will 
@@ -80,15 +81,22 @@ delFromCfg:{[ids]
 	delete from `.requestor.cfg where marketId in ids;
 	/ - removed id(s) from snapshot tables
 	delete from `.requestor.tradeSnapshot where sym in ids;
-	delete from `.requestor.marketstatusSnapshot where sym in ids}
+	delete from `.requestor.marketstatusSnapshot where sym in ids;
+	/ - persist ?
+	if[persistchges;persistCfg[]]}
 	
 addSubscription:{[name;id;end;interval]
 	if[all null id:(),id;:()];
 	/ - update the .requestor.cfg table
 	`.requestor.cfg upsert ([] marketId: id;market: {$[10h = type[x];enlist x;x]} name;start: .proc.cp[];end: end;interval: interval;nextruntime: .proc.cp[]);
+	/ - persist ?
+	if[persistchges;persistCfg[]];
 	/ - publish meta data for new id(s)
 	publishMetadata[id]}
 
+// persist the cfg to the input text file
+persistCfg:{[] datacfgfile 0: csv 0: select marketId, market, string start, string end, string interval from cfg}
+	
 // function to convert kdb dictionary into a string which can be passed as a command line parameter
 jsonStringParam:{[api;d]
 	if[not null api;d:`jsonrpc`method`params`id!("2.0";"SportsAPING/v1.0/",string api;d;1)];
@@ -235,7 +243,7 @@ login:{[retry]
 		[.lg.o[`login;"Login successful: ",st:loginResp`sessionToken]; sessionToken:: st];
 		retrylogin[respstr]]}; 
 retrylogin:{[errMsg]
-		.lg.o[`login;"Login failed. Response was: ",respstr,". Retrying login in ",string logonretryintv];
+		.lg.o[`login;"Login failed. Response was: ",errMsg,". Retrying login in ",string logonretryintv];
 		.os.sleep `int$`second$logonretryintv; login[1b]}; / - sleep for while and then retry login
 // function to keep session alive alive
 keepAlive:{[]
