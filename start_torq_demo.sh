@@ -16,7 +16,7 @@ q torq.q -load code/processes/discovery.q  -proctype discovery -procname discove
 
 # launch the tickerplant, rdb, hdb
 echo 'Starting tp...'
-q tickerplant.q database hdb -proctype tickerplant -procname tickerplant1 -localtime -U config/passwords/accesslist.txt 1 </dev/null >$KDBLOG/torqtp.txt 2>&1 &
+q code/processes/tickerplant.q database $KDBHOME/hdb -proctype tickerplant -procname tickerplant1 -localtime -U config/passwords/accesslist.txt 1 </dev/null >$KDBLOG/torqtp.txt 2>&1 &
 
 echo 'Starting rdb...'
 q torq.q -load code/processes/rdb.q -proctype rdb -procname rdb1 -localtime -U config/passwords/accesslist.txt 1 -g 1 -T 30 </dev/null >$KDBLOG/torqrdb.txt 2>&1 &

@@ -25,7 +25,7 @@ timeout 2
 
 REM  launch the tickerplant, rdb, hdb
 REM  'Starting tp...'
-start "tickerplant" q tickerplant.q database hdb -proctype tickerplant -procname tickerplant1 -localtime -U config/passwords/accesslist.txt
+start "tickerplant" q code/processes/tickerplant.q database %KDBHOME%\hdb -proctype tickerplant -procname tickerplant1 -localtime -U config/passwords/accesslist.txt
 
 REM  'Starting rdb...'
 start "rdb" q torq.q -load code/processes/rdb.q -proctype rdb -procname rdb1 -localtime -U config/passwords/accesslist.txt -g 1 -T 30
