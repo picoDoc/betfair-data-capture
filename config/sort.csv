@@ -1,0 +1,14 @@
+tabname,att,column,sort
+default,p,sym,1
+default,,time,1
+quote,p,sym,1
+quote,,selectionId,1
+quote,,time,1
+trade,p,sym,1
+trade,,selectionId,1
+trade,,time,1
+metadata,p,sym,1
+metadata,,selectionId,1
+metadata,,time,1
+marketstatus,p,sym,1
+marketstatus,,time,1
