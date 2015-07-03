@@ -7,7 +7,7 @@ getChances:{[mktid;bucket]
 	lookup: (select date from activeDates where any each marketids in\: mktid) cross ([] sym:(),mktid);
 	chances: 0!select chance: 100*1% size wavg price, size: sum size by sym, selectionId, bucket xbar time from trade where ([] date;sym) in lookup;
 	/ join on metadata
-	chances lj 2!select sym, selectionId, eventTypeName, competitionName, marketName, eventName, selectionName from select by sym,selectionId from metadata where ([] date;sym) in lookup}
+	joinOnMetaData[chances;lookup]};
 
 / - get the mid price for each selection
 getMid:{[mktid]
@@ -16,4 +16,9 @@ getMid:{[mktid]
 		update chance: 100*1% mid,  spread: lay - back from 
 		select time, sym, selectionId, back:backs[;0], lay: lays[;0], mid: avg each flip (backs[;0];lays[;0]) from quote where ([] date;sym) in lookup;
 	/ join on metadata
-	mid lj 2!select sym, selectionId, eventTypeName, competitionName, marketName, eventName, selectionName from select by sym,selectionId from metadata where ([] date;sym) in lookup}
+	joinOnMetaData[mid;lookup]}
+	
+/ - join on meta data
+joinOnMetaData:{[data;lookup]
+	data lj 2!select sym, selectionId, eventTypeName, competitionName, marketName, eventName, selectionName 
+			from select by sym,selectionId from metadata where ([] date;sym) in lookup}
