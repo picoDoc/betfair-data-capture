@@ -8,6 +8,7 @@ logonretryintv:@[value;`logonretryintv;0D00:00:10];	/ - in the event of an unsuc
 pubprocs:@[value;`pubprocs;(),`tickerplant1]	/ - list of processes (names not types) to publish data to.  If null symbol, then the 
 						/ - the process will not publish data and will used to poll for ad-hoc data (i.e. query via gw)
 pubconnsleepintv:@[value;`pubconnsleepintv;5]	/ - number of seconds to sleep before re-attempting to connection to downstream processes
+schema:@[value;`schema; getenv[`KDBCODE],"/tick/tick/database.q"];	/ - schema file, used to order columns of published data etc...
 
 username:@[value;`username;""];			/ - betfair username
 password:@[value;`password;""];			/ - betfair password
@@ -26,7 +27,6 @@ pythonex:@[value;`pythonex;"python"," w".os.NT]	/ - name of the python executabl
 // initialization function
 init:{[]
 	.lg.o[`init;"Running initialization function"];
-	sessionToken:: "";
 	login[0b];						/ login to the betfair api
 	.lg.o[`init;"Setting up timer to refresh session"];
 	.timer.rep[.proc.cp[];0Wp;keepalivetime;(`.requestor.keepAlive;`);2h;"refresh the Session Token";1b]; / refresh it every 6 hrs
@@ -231,9 +231,8 @@ callApi:{[typ;req]
 // function to get a new session token/id
 login:{[retry]
 	/ - validate username, password and appKey (cannot be empty)
-	$[not count username;.lg.e[`login;"Username cannot be empty. Please check code/settings/requestor.q"];
-		not count password;.lg.e[`login;"Password cannot be empty. Please check code/settings/requestor.q"];
-		not count appKey;.lg.e[`login;"AppKey cannot be empty. Please check code/settings/requestor.q"];()];
+	if[any nc: not count each .requestor l: `username`password`appKey;
+		.lg.e[`login;(", " sv string l where nc)," cannot be empty.  Please check process settings..."]];
 	.lg.o[`login;"Attempting to login to betfair api..."];
 	/ - if the call to login throws an error, keep retrying 
 	loginResp: .[callApi;(`login;jsonStringParam[`;`username`password!(username;password)]);{[e] retrylogin[e]}];
@@ -269,6 +268,7 @@ if[logoutonexit;
 		
 // run initialization
 \d .
+.requestor.sessionToken:"";
 .lg.o[`init;"Loading schema file"];
-system .os.pth "l ",getenv[`KDBHOME],"/tick/database.q"; / grab schema
+system .os.pth "l ",.requestor.schema; / grab schema
 .requestor.init[]
