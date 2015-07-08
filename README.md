@@ -5,9 +5,11 @@ This is a simple example of a market data capture system using sports exchange (
 
 To get this framework up and running in a unix environment you need two things:
 
-1. A Windows or Unix environment with python installed (tested with Python 2.7.9 and 3.4.3)
+1. A Windows or Unix environment with python installed.
 2. The [free 32 bit version of kdb+](http://kx.com/software-download.php) set up and available from the command prompt as q.
-3. A betfair.com account. If you don't already have an account you can get one [here](https://register.betfair.com/account/registration).
+3. openssl installed (should be present in Unix systems by default).  You can download a Windows installer [here](http://gnuwin32.sourceforge.net/packages/openssl.htm).  It is recommended that you add the loocation of the openssl executable to the PATH environment variable.
+4. Python is required (should work fine with v2 or v3).  The requests module is also required, more info on it [here](http://docs.python-requests.org/en/latest/user/install/)
+5. A betfair.com account. If you don't already have an account you can get one [here](https://register.betfair.com/account/registration).
 
 
 ## Set Up
@@ -36,61 +38,47 @@ To get this framework up and running in a unix environment you need two things:
     - client-2048.csr
     - client-2048.crt
     - Copy all 3 of these files into the *config/certificates* folder.
-* Finally we need to add some events to collect data on!  In *config/settings/requestor.q* there are a few examples provided and commented out.  First we define a table that stores the events we want to monitor and their details:
+* Finally we need to add some events to collect data on!  This configuration is held in the *config/requestor.csv* file. There are five columns in this config file:
+ - **marketId**  The unique identifier for the market. MarketId's are prefixed with '1.' or '2.'
+ - **market** Free text field used to identify the market in the config
+ - **start** Timestamp to indicate when to start polling for data 
+ - **end** Timestamp to indicate when to stop polling for data 
+ - **interval** Period of time between polls
+
+* This file will be loaded when the requestor process starts. Additional markets can be added to config when the process is live using the *.requestor.addSubscription* function.
 
     ```
-    .requestor.markets:([]market:();marketId:();start:();end:();interval:());
+    .requestor.addSubscription["Grexit";`1.117087478;0Wp;0D00:00:10]
     ```
-
-    then we add rows to this table:
-
-    ```
-    `.requestor.markets insert (`PremierLeague;`1.113659986;.z.p;0Wp;00:15:00.000000000);
-    ```
-
-    This entry will collect available quotes and trading data on the English Premier League overall champion every 15 minutes, starting immediately.  So lets go over the meaning of each piece of information in this table:
-    - **market** is simply an identifier for the market, you can use whatever name you like
-    - **marketId** is the most important piece of information, this is betfair's unique market identifier.  See below on where to find these
-    - **start** This tells TorQ when to start collecting data on this market (.z.p for immediate start)
-    - **end** This tell TorQ when to stop collecting data on this market
-    - **interval** This tells TorQ how often to collect data on this market
+    
 * The best way to find the marketId for a particular event is using the betfair [Betting API visualiser](https://developer.betfair.com/visualisers/api-ng-sports-operations/).  Under **listMarketCatalogue** you can search through the available markets by name, volume traded, sport etc.  Again if you're logged in before you click this the **App Key** and **Session Token** will autofill.
 * Once you have a few markets setup to collect data on, all that's left to do is run the startup script to start up the TorQ stack and start collecting data!
 
     ```
     sh start_torq_demo.sh
     ```
-
+or double-click on the *start_torq_demo.bat* file if you are running on Windows.
 
 ## Using the API
 
 * Once you have some data in the system there are some basic queries that can be run on the gateway to retrieve data.  
-    - You can run to get a list of available events in your database: 
+    - You can run to get a list of available markets for a given date: 
 
         ```
-        getEvents[]
+        getActiveMarkets[.z.d - 1]
         ```
     - To return the mid run:
         
         ```
-        getMid enlist[`sym]!enlist[`$"Scotland v Ireland"]
+        getMid[`1.117087478;0b]
         ```
-    - To return the mid pivoted (so the outcomes are columns rather than rows):
+    - To return the mid pivoted (so the outcomes are columns rather than rows), change the second parameter to 1b:
 
         ```
-        getMidPivot enlist[`sym]!enlist[`$"Scotland v Ireland"]
+        getMid[`1.117087478;1b]
         ```
 * I'm going to add more details in here when I can be assed...
 
-## Python Prerequisites
-* Need to able to invoke python from the command line.  This should not be an issue on Unix environments.  If you cannot do this on a Windows environment, please check this [link](https://docs.python.org/2/using/windows.html#excursus-setting-environment-variables)
-* The "requests" module is required for the python script.  If you do not have this installed, please click [here](http://docs.python-requests.org/en/latest/user/install/) for more information.
-* Need to install the requests security package extras as well, otherwise the Python script will log an error everytime it runs (although it still works)
-
-	```
-	$ pip install requests[security]
-
-	```
 
 ## Thing still to do...
 
