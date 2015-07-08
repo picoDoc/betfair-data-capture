@@ -179,22 +179,8 @@ getMarketBook:{[id]
 pubDataToTp:{[tabname;data] if[not count data;:()]; neg[tphs] @\: (`.u.upd;tabname;$[type data;value flip 0!data;data])}
 
 // function to get meta data about given market id
-<<<<<<< HEAD
-getMetaData:{[marketids] delete totalMatched from distinct ungroup getMarketCatalogue[0N;marketids;();()]}
-// update the global metadata table
-addMetaData:{[marketids]
-	/ - call the api for meta data on marketids
-	data: getMetaData[marketids];
-	/ - upsert this into the global metadata table
-	`.requestor.metadata upsert data}
-
-buildJsonRpcDict:{[api;paramd]
-	jsonStringParam `jsonrpc`method`params`id!("2.0";"SportsAPING/v1.0/",string api;paramd;1)}
- 
-=======
 getMetadata:{[marketids] distinct ungroup getMarketCatalogue[0N;marketids;();()]}
 
->>>>>>> schema_changes
 // function to get a table of all the event types
 getEventTypes:{[]
 	data: callApi[`data;jsonStringParam[`listEventTypes;enlist[`filter]!enlist ()!()]];
@@ -229,11 +215,7 @@ callApi:{[typ;req]
 	/ - build the command line params to be passed to the python script
 	cmdparams: " " sv (string typ;appKey;sessionToken;req);
 	/ - submit the request via the python handler
-<<<<<<< HEAD
-	data: first system " " sv ("python"," w".os.NT; .os.pth getenv[`KDBBIN],"/getData.py";cmdparams);
-=======
 	data: first system " " sv (pythonex; .os.pth getenv[`KDBBIN],"/getData.py";cmdparams);
->>>>>>> schema_changes
 	/ - check for errors returned by python handler
 	if["ERROR:" ~ 6#data;.lg.e[`callApi;data]];
 	/ - convert the json string into a q dictionary
