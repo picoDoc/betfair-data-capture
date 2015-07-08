@@ -39,6 +39,16 @@ permitreload:1b                         // enable reload of hdbs/rdbs
 compression:()                          // specify the compress level, empty list if no required
 gc:1b                                   // garbage collect at appropriate points (after each table save and after sorting data)
 
+.wdb.postreplay:{[d;p]
+	.lg.o[`postreplay;"Calling the postreplay function"];
+	/ - get the sym file and set it globally
+	@[`.;`sym;:;get ` sv (d:hsym d),`sym];
+	/ - get a distinct list of the marketids (sym) from the metadata table
+	marketids: exec sym from distinct select value sym from .Q.par[d;p;`metadata];
+	/ - save down the marketids to activeDates table
+	.[` sv d,`activeDates;();,; ([date: enlist p] marketids: enlist marketids)];
+	.lg.o[`postreplay;"Post replay complete"]}
+
 // Server connection details
 \d .servers
 CONNECTIONS:`hdb`tickerplant`rdb`gateway	// list of connections to make at start up

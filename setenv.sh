@@ -8,6 +8,8 @@ export KDBHTML=${PWD}/html
 export KDBLIB=${PWD}/lib
 export KDBBIN=${PWD}/bin
 
+export KDBBASEPORT=30000
+
 # if using the email facility, modify the library path for the email lib depending on OS
 # e.g. linux:
 # export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:$KDBLIB/l[32|64]
