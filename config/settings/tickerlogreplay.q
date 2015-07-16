@@ -6,7 +6,7 @@
 firstmessage:0		// the first message to execute
 lastmessage:0W		// the last message to replay
 messagechunks:0W	// the number of messages to replay at once
-schemafile:`$getenv[`KDBHOME],"/tick/database.q"   	// the schema file to load data in to
+schemafile:`$getenv[`KDBCODE],"/tick/tick/database.q"   	// the schema file to load data in to
 tablelist:enlist `all	// the tables to replay into (to allow subsets of tp logs to be replayed).  `all means all
 hdbdir:`$getenv[`KDBHOME],"/hdb/database"		// the hdb directory to write to
 tplogfile:`		// the tp log file to replay.  Only this or tplogdir should be used (not both)
