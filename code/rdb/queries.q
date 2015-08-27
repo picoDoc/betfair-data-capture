@@ -19,3 +19,14 @@ getMid:{[mktid]
 joinOnMetaData:{[data;mktid]
 	data lj 2!select sym, selectionId, eventTypeName, competitionName, marketName, eventName, selectionName 
 			from select by sym,selectionId from metadata where sym in mktid}
+
+/ - calculate vwap buckets
+/ - v is vwap buckets i.e. 100 200 500
+/ - q is list of qty/size (in price order)
+/ - p is a list of prices (may be asc or desc depending on whether it is back or lays)
+vwap:{[v;q;p] (deltas each (v,()) &\: sums q) wavg\: p}
+getVwap:{[mktid;pbkt]
+	data: ungroup select sym, selectionId, time, price:count[i]#enlist pbkt, bsize:vwap[pbkt;;]'[bsizes;backs], lsize:vwap[pbkt;;]'[lsizes;lays] 
+		from quote where sym in mktid;
+	/ - join on metadata
+	joinOnMetaData[data;mktid]}

@@ -18,6 +18,9 @@ getMid:{[mktid;pivot] data:.gw.syncexec[(`getMid;mktid);`hdb`rdb];
 		$[count[data] and pivot;
 		0!piv[data;`time`sym`eventTypeName`competitionName`marketName`eventName;(),`selectionName;`mid`chance`spread];data]}
 
+/ - get vwaps of each quote tick in specified buckets
+getVwap:{[mktid;bkt] .gw.syncexec[(`getVwap;mktid;bkt);`hdb`rdb]}
+
 / - pivot the data (borrowed from code.kx.com; http://code.kx.com/wiki/Pivot#A_very_general_pivot_function.2C_and_an_example_usage)
 piv:{[t;k;p;v;f;g]
  v:(),v;
