@@ -34,7 +34,7 @@ joinOnMetaData:{[data;dates;mktid]
 vwap:{[v;q;p] (deltas each (v,()) &\: sums q) wavg\: p}
 getVwap:{[mktid;pbkt]
 	dates: getMktidDates[mktid];
-	data: ungroup select sym, selectionId, time, price:count[i]#enlist pbkt, bsize:vwap[pbkt;;]'[bsizes;backs], lsize:vwap[pbkt;;]'[lsizes;lays]
+	data: ungroup select sym, selectionId, time, size:count[i]#enlist pbkt, back:vwap[pbkt;;]'[bsizes;backs], lay:vwap[pbkt;;]'[lsizes;lays]
                 from quote where date in dates, sym in mktid;
         / - join on metadata
         joinOnMetaData[data;dates;mktid]}
