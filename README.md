@@ -77,16 +77,3 @@ or double-click on the *start_torq_betfair.bat* file if you are running on Windo
         ```
         getMid[`1.117087478;1b]
         ```
-* I'm going to add more details in here when I can be assed...
-
-
-## Thing still to do...
-
-* Add a nice TorQ style pdf to go with this README, with a bit more in depth detail on:
-    - how the whole system works
-    - what form the data is actually stored in
-    - writing new API queries 
-    - etc.
-* Polish and expand API
-* Make sure everything works/makes sense based on feedback from the Andrews
-* Maybe add an integrated method to search for and add new markets (rather than having to use the API-NG visualiser on betfair.com)
