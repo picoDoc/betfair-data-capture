@@ -55,9 +55,9 @@ To get this framework up and running in a unix environment you need two things:
 * Once you have a few markets setup to collect data on, all that's left to do is run the startup script to start up the TorQ stack and start collecting data!
 
     ```
-    sh start_torq_demo.sh
+    sh start_torq_betfair.sh
     ```
-or double-click on the *start_torq_demo.bat* file if you are running on Windows.
+or double-click on the *start_torq_betfair.bat* file if you are running on Windows.
 
 ## Using the API
 
