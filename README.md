@@ -98,3 +98,4 @@ or double-click on the *start_torq_betfair.bat* file if you are running on Windo
         getVwap[`1.117087478;1]
         getVwap[`1.117087478;1000]
         ```
+
