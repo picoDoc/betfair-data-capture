@@ -51,7 +51,7 @@ To get this framework up and running in a unix environment you need two things:
     .requestor.addSubscription["Grexit";`1.117087478;0Wp;0D00:00:10]
     ```
     
-* The best way to find the marketId for a particular event is using the betfair [Betting API visualiser](https://developer.betfair.com/visualisers/api-ng-sports-operations/).  Under **listMarketCatalogue** you can search through the available markets by name, volume traded, sport etc.  Again if you're logged in before you click this the **App Key** and **Session Token** will autofill.
+* The best way to find the marketId for a particular event is using the betfair [Betting API visualiser](https://developer.betfair.com/exchange-api/betting-api-demo/).  Under **listMarketCatalogue** you can search through the available markets by name, volume traded, sport etc.  Again if you're logged in before you click this the **Session Token** will autofill, and the **appKey** is the same as the one you filled in above.
 * Once you have a few markets setup to collect data on, all that's left to do is run the startup script to start up the TorQ stack and start collecting data!
 
     ```
