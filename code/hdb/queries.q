@@ -6,7 +6,7 @@ getActiveMarkets:{[d] datesymfilt: ungroup select date, sym: marketids from acti
 getMktidDates:{[mktid] exec date from activeDates where any each marketids in\: mktid}
 
 / - Calculates odds based on matched trades by selection and time window.  Odds returned as implied probability
-getChances:{[mktid;bucket]
+getOdds:{[mktid;bucket]
 	dates: getMktidDates[mktid];
 	chances: 0!select chance: 100*1% size wavg price, size: sum size by sym, selectionId, bucket xbar time 
 		from trade where date in dates, sym in mktid;

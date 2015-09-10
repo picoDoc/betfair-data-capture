@@ -2,7 +2,7 @@
 getActiveMarkets:{[d] `date xcols update date: d from delete time from 0!select by sym, selectionId from metadata}
 
 / - Calculates odds based on matched trades by selection and time window.  Odds returned as implied probability
-getChances:{[mktid;bucket]
+getOdds:{[mktid;bucket]
 	chances: 0!select chance: 100*1% size wavg price, size: sum size by sym, selectionId, bucket xbar time from trade where sym = mktid;
 	/ join on metadata
 	joinOnMetaData[chances;mktid]};

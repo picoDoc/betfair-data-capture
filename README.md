@@ -65,15 +65,36 @@ or double-click on the *start_torq_betfair.bat* file if you are running on Windo
     - You can run to get a list of available markets for a given date: 
 
         ```
-        getActiveMarkets[.z.d - 1]
+        getActiveMarkets[date]
+
+	eg.
+	getActiveMarkets[2000.01.01]
+	getActiveMarkets[.z.d]
         ```
-    - To return the mid run:
+    - To return information about the mid price run (pivot will return the different outcomes as columns instead of rows):
         
         ```
+	getMid[marketID;pivot]
+
+	eg.
         getMid[`1.117087478;0b]
+	getMid[`1.117087478;1b]
         ```
-    - To return the mid pivoted (so the outcomes are columns rather than rows), change the second parameter to 1b:
+    - To return the implied odds based on trades matched, and the volume of trades matched, run (bucket is in minutes):
 
         ```
-        getMid[`1.117087478;1b]
+        getOdds[marketID;bucket;pivot]
+
+	eg.
+	getOdds[`1.117087478;10;1b]
+	getOdds[`1.117087478;1;0b]
+        ```
+    - To return the volume weighted average price you would have to pay if trading a given volume run:
+
+	```
+        getVwap[marketID;size]
+
+        eg.
+        getVwap[`1.117087478;1]
+        getVwap[`1.117087478;1000]
         ```

@@ -9,7 +9,7 @@ getActiveMarkets:{[d]
 	.gw.syncexec[(`getActiveMarkets;d);servers]}
 	
 / - Calculates odds based on matched trades by selection and time window.  Odds returned as implied probability
-getChances:{[mktid;bucket;pivot] data:.gw.syncexec[(`getChances;mktid;bucket);`hdb`rdb];
+getOdds:{[mktid;bucket;pivot] data:.gw.syncexec[(`getOdds;mktid;bucket);`hdb`rdb];
 		$[count[data] and pivot;
 		0!piv[data;`time`sym`eventTypeName`competitionName`marketName`eventName;(),`selectionName;`chance`size];data]}
 
