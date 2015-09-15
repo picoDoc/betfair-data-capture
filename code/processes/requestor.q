@@ -111,7 +111,7 @@ publishMarketData:{[id]
 	/ - get the market book data ( trades and quotes )
 	data: getMarketBook[id:(),id]`result;
 	/ - make the keys/columns homogeneous for each marketid (so dictionaries will collapse into a queriable table)
-	data: {x!y[x]}[raze distinct key each data;] each data;
+	data: hmgKeys[data];
 	/ - get market status messages
 	marketstatuses: statusDelta[select sym: `$marketId, `$status, inplay from data];
 	/ - remove "CLOSED" markets
@@ -153,6 +153,8 @@ statusDelta:{[data]
 
 // function for pulling out prices and size of quotes and trades
 extractPricesSizes:{[x;y] @[@/[;x];;`float$()] each y}
+// function to ensure that list of dictionaries will collapse into a table (i.e. ensures that keys are homogeneous)
+hmgKeys:{[x] coln!/:x @\: coln:distinct raze key each x}
 	
 // function to publish meta data to downstream processes	
 publishMetadata:{[ids]
@@ -203,7 +205,7 @@ getMarketCatalogue:{[sportids;marketids;text;inplay]
 	/ - call the api
 	if[ not count data: callApi[`data;req][`result];:0#marketCatalogue];	/ - if nothing returned, then escape returning an empty schema
 	/ - some markets don't return anything for competition 
-	data:{y!x[y]}[;`eventType`competition`marketId`totalMatched`marketName`event`runners] each data;
+	data: hmgKeys[data];
 	/ - return a table with info for the markets
 	select eventTypeId: "I" $ eventType @' `id, eventTypeName: `$ eventType @' `name,    competitionId: "I" $ {@[@[;x];;""]@'y}[`id;competition], 
 		competitionName: `$ {@[@[;x];;""]@'y}[`name;competition],sym: `$ marketId, `$ marketName, totalMatched, eventId: "I" $ event @' `id, 
@@ -223,7 +225,7 @@ callApi:{[typ;req]
 	/ - check if the response has returned a result (otherwise it will have returned an error)
 	$[(`error in key data) and count data`error;
 		/ - pull the error code and log the error in the process log
-		[.lg.e[`callApi;"ERROR response received from Betfair: ",errorCode:data[`error;`data;`APINGException;`errorCode]];
+		[.lg.e[`callApi;"ERROR response received from Betfair: ",errorCode:@[data .;`error`data`APINGException`errorCode;@[data .;`error`message;{[e] "Unknown error structure; cannot return error code",e}]]];
 		if[errorCode ~ "INVALID_SESSION_INFORMATION"; login[0b]]]; / - if INVALID_SESSION_INFORMATION error returned, attempt to login again
 		:data]}
 
