@@ -1,0 +1,3 @@
+name,filter,period,subinterval
+UEFA Champions League Match Odds + Goals,"`competitionIds`marketTypeCodes!((),228;(),`MATCH_ODDS`OVER_UNDER_15`OVER_UNDER_25`OVER_UNDER_35)",0D00:30,0D00:00:15
+RWC 2015 Match Odds,"`competitionIds`marketTypeCodes!((),2015163;(),`MATCH_ODDS)",0D00:30,0D00:00:15

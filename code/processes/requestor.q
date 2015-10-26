@@ -5,7 +5,7 @@
 logoutonexit:@[value;`logoutonexit;1b]		/ - logout of betfair session when the process is shutdown
 keepalivetime:@[value;`keepalivetime;0D03]	/ - send a keep alive every X
 logonretryintv:@[value;`logonretryintv;0D00:00:10];	/ - in the event of an unsuccessful logon, this is the amount of time to wait before retrying
-pubprocs:@[value;`pubprocs;(),`tickerplant1]	/ - list of processes (names not types) to publish data to.  If null symbol, then the 
+pubprocs:@[value;`pubprocs;(),`tickerplant1]	/ - list of processes (names not types) to publish data to.  If null symbol, then the
 						/ - the process will not publish data and will used to poll for ad-hoc data (i.e. query via gw)
 pubconnsleepintv:@[value;`pubconnsleepintv;5]	/ - number of seconds to sleep before re-attempting to connection to downstream processes
 schema:@[value;`schema; getenv[`KDBCODE],"/tick/tick/database.q"];	/ - schema file, used to order columns of published data etc...
@@ -15,15 +15,18 @@ password:@[value;`password;""];			/ - betfair password
 appKey:@[value;`appKey;""];			/ - betfair application key
 
 datacfgfile:@[value;`datacfgfile;hsym `$getenv[`KDBCONFIG],"/requestor.csv"]	/ - location of the requestor config file
+autosubcfgfile:@[value;`autosubcfgfile;hsym`$getenv[`KDBCONFIG],"/autosub.csv"] / - location of the autosubs config file
 persistchges:@[value;`persistchges;1b]						/ - persist changes in cfg to the text cfg file
 mktdatatimerf:@[value;`mktdatatimerf;0D00:00:02]				/ - how often the timer will check if it needs to poll for market data
+autosubtimerf:@[value;`autosubtimerf;0D00:00:00]				/ - how often the timer will check to add subscriptions (if zero, autosub will not be used)
 
 repubrefdatatime:@[value;`repubrefdatatime;0D00:00:01]	/ - republish reference data for active subscriptions so ref data for trades and quotes will 
 							/ - stored within the same date partition
-pythonex:@[value;`pythonex;"python"," w".os.NT]	/ - name of the python executable, defaults to python (osx and linux) or pythonw (windows)
-						/ - useful if you have multiple versions installed i.e. "python3.3"
+pythonex:@[value;`pythonex;"python"," w".os.NT]		/ - name of the python executable, defaults to python (osx and linux) or pythonw (windows)
+							/ - useful if you have multiple versions installed i.e. "python3.3"
 
-	
+marketCatalogueMaxResults:@[value;`marketCatalogueMaxResults;200]		/ - max rows to return when using listMarketCatalogue call
+
 // initialization function
 init:{[]
 	.lg.o[`init;"Running initialization function"];
@@ -41,18 +44,30 @@ initPublish:{[n]
 	@[`.requestor;`tphs;:;handles];
 	.lg.o[`initPublish;"Setting timer to poll betfair api for data"];
 	@[`.requestor;`cfg;:;1!loadConfigFile[]];
-	/ - set a global tradeSnapshot table, this is to be used for publishing traded deltas (because betfair only provides the 
+	/ - initialise the auto-sub functionality if autosubtimerf is set
+	if[autosubtimerf;initAutoSub[]];
+	/ - set a global tradeSnapshot table, this is to be used for publishing traded deltas (because betfair only provides the
 	/ - cumulative total traded volumes)
 	@[`.requestor;`tradeSnapshot;:;`sym`selectionId`price xkey delete time from `. `trade];	
 	/ - set a global marketstatusSnapshot table
 	@[`.requestor;`marketstatusSnapshot;:;`sym xkey delete time from `. `marketstatus];
-	/ - publish meta data for each of the markets that have been loaded
-	if[count cfg;publishMetadata[(0!cfg)`marketId]];
+	/ - publish meta data for each of the markets that have been loaded, only do this if not using autosub functionality
+	if[count[cfg] and not autosubtimerf;publishMetadata[(0!cfg)`marketId]];
 	/ - set timer function to check cfg for whether to poll for data
 	.timer.rep[.proc.cp[];0Wp;mktdatatimerf;(`.requestor.pollForMarketDataErrorTrap;`);2h;"check if to poll for market data";0b];
 	/ - set timer function to re-publish metadata after the system has rolled}
 	.timer.rep[.proc.cd[] + repubrefdatatime;0Wp;1D;(`.requestor.republishRefData;`);2h;"republish metadata";0b]}
-	
+
+initAutoSub:{[]
+	.lg.o[`initAutoSub;"Loading the-auto subscribe config: ",string autosubcfgfile];
+	/ - load the auto sub file and set globally
+	@[`.requestor;`autosubcfg;:;loadAutoSubConfigFile[]];
+	/ - set the timer function to automatically subscribe for markets
+	.timer.rep[.proc.cp[];0Wp;autosubtimerf;(`.requestor.checkAutoSubscriptions;`);0h;"auto sub check";0b];}
+
+// function to convert strings into timestamps, this is to allow functional configs such as .z.p, .proc.cp[] etc...
+parseTimeCols:{[x] `timestamp$ value each x}
+
 // function to load the config file
 loadConfigFile:{[] 
 	/ - read in the config file
@@ -61,9 +76,14 @@ loadConfigFile:{[]
 	data: update start: .requestor.parseTimeCols[start], .requestor.parseTimeCols[end] from data;
 	/ - tag on next run times for each market
 	update nextruntime: .proc.cp[] + interval from data}
-	
-// function to convert strings into timestamps, this is to allow functional configs such as .z.p, .proc.cp[] etc...
-parseTimeCols:{[x] `timestamp$ value each x}
+
+// function to load auto subscription config
+loadAutoSubConfigFile:{[]
+ 	/ - read in the file
+	data: ("**NN"; enlist ",") 0: autosubcfgfile;
+	/ - parse the filter col
+	.[@';(data;`filter;value);{.lg.e[`loadAutoSubConfigFile;"Could parse dictionary column in autosub config file. Error code was: ",x]; exit 1}]}
+
 // function to identify when to poll for data for each market
 pollForMarketData:{[]
 	now: .proc.cp[];
@@ -94,6 +114,10 @@ addSubscription:{[name;id;end;interval]
 	/ - publish meta data for new id(s)
 	publishMetadata[id]}
 
+checkAutoSubscriptions:{[]
+	/ - check if add subscriptions need to be added
+	checkIfToAddSub .' flip .requestor.autosubcfg`filter`period`subinterval;}
+
 // persist the cfg to the input text file
 persistCfg:{[] datacfgfile 0: csv 0: select marketId, market, string start, string end, string interval from cfg}
 	
@@ -118,7 +142,7 @@ publishMarketData:{[id]
 	if[ any clsbool: "CLOSED" ~/: data`status;
 		delFromCfg `$data[`marketId] where clsbool;	/ - remove closed markets from cfg so we don't poll for them again
 		if[not count data: delete from data where clsbool;:()]];
-	r: ungroup select sym:`$marketId, selectionId:`int$runners @'' `selectionId, ex:runners @'' `ex from data;
+	r: ungroup select sym:`$marketId, selectionId:`int$runners[;;`selectionId], ex:runners[;;`ex] from data;
 	/ - format the trades from the market book data
 	trades: ungroup select sym, selectionId, price:.requestor.extractPricesSizes[`tradedVolume`price;ex], size:.requestor.extractPricesSizes[`tradedVolume`size;ex] from r;
 	/ - get deltas for traded volumes (between the last tick and the current tick)
@@ -158,7 +182,7 @@ hmgKeys:{[x] coln!/:x @\: coln:distinct raze key each x}
 	
 // function to publish meta data to downstream processes	
 publishMetadata:{[ids]
-	if[not count t:getMetadata[ids];:()]; / - escape if not meta data returned
+	if[not count t:getMetadata[ids];:()]; / - escape if no meta data returned
 	/ - publish the data to the tickerplant
 	pubDataToTp[`metadata; (cols[`. `metadata] except `time) # t]}
 	
@@ -177,40 +201,43 @@ getMarketBook:{[id]
 	/ - call the api to get the data
 	callApi[`data;reqd]}	
 
-// function to data to the tickerplant
+// function to publish data to the tickerplant
 pubDataToTp:{[tabname;data] if[not count data;:()]; neg[tphs] @\: (`.u.upd;tabname;$[type data;value flip 0!data;data])}
 
 // function to get meta data about given market id
-getMetadata:{[marketids] distinct ungroup getMarketCatalogue[0N;marketids;();()]}
+getMetadata:{[marketids] distinct ungroup getMarketCatalogue[enlist[`marketIds]!enlist marketids]}
 
 // function to get a table of all the event types
 getEventTypes:{[]
 	data: callApi[`data;jsonStringParam[`listEventTypes;enlist[`filter]!enlist ()!()]];
-	select eventid: `$eventType @' `id, eventname: `$eventType @' `name, marketcount: marketCount from data`result}
+	select eventid: `$eventType[;`id], eventname: `$eventType[;`name], marketcount: marketCount from data`result}
 
 // function to return a table of markets for a particular sports id
 marketCatalogue:([] eventTypeId:`int$();eventTypeName:`symbol$();competitionId:`int$();competitionName:`symbol$();sym:`symbol$();marketName:`symbol$();
 		totalMatched:`float$();eventId: `int$();eventName: `symbol$();timezone: `symbol$();openDate: `timestamp$();selectionName: ();selectionId: ())
-getMarketCatalogue:{[sportids;marketids;text;inplay]
-	/ - filter dictionary
-	filter: ()!();
-	if[not all null sportids; filter[`eventTypeIds]: string (),sportids];
-	if[not all null marketids; filter[`marketIds]: string (), marketids];
-	if[count[text] and not "*" ~ first text; filter[`textQuery]:text];
-	if[count inplay; filter[`inPlayOnly]:inplay];
+getMarketCatalogue:{[filter]
 	/ - paramd dictionary
-	paramd:`filter`maxResults`marketProjection`sort!(filter;200;("COMPETITION";"EVENT";"EVENT_TYPE";"RUNNER_DESCRIPTION";"RUNNER_METADATA");`MAXIMUM_TRADED);
+	paramd:`filter`maxResults`marketProjection`sort!(filter;marketCatalogueMaxResults;("COMPETITION";"EVENT";"EVENT_TYPE";"RUNNER_DESCRIPTION";"RUNNER_METADATA");`MAXIMUM_TRADED);
 	/ - build the json req dictionary
 	req: jsonStringParam[`listMarketCatalogue;paramd];
 	/ - call the api
 	if[ not count data: callApi[`data;req][`result];:0#marketCatalogue];	/ - if nothing returned, then escape returning an empty schema
-	/ - some markets don't return anything for competition 
-	data: hmgKeys[data];
+	/ - some markets don't return anything for competition, uj into marketCatalogue so all columns will be present
+	data: marketCatalogue uj hmgKeys[data];
 	/ - return a table with info for the markets
-	select eventTypeId: "I" $ eventType @' `id, eventTypeName: `$ eventType @' `name,    competitionId: "I" $ {@[@[;x];;""]@'y}[`id;competition], 
-		competitionName: `$ {@[@[;x];;""]@'y}[`name;competition],sym: `$ marketId, `$ marketName, totalMatched, eventId: "I" $ event @' `id, 
-		eventName: `$ event @' `name, timezone: `$event @' `timezone,	openDate: "P" $ -1_ 'event @' `openDate, 
-		selectionName: `$runners @'' `runnerName,  selectionId: `int$ runners @'' `selectionId from data}
+	select eventTypeId: "I" $ eventType[;`id], eventTypeName: `$ eventType[;`name], competitionId: "I" $ competition[;`id],
+                		competitionName: `$ competition[;`name],sym: `$ marketId, `$ marketName, totalMatched, eventId: "I" $ event[;`id],
+                		eventName: `$ event[;`name], timezone: `$event[;`timezone], openDate: "P" $ -1_ 'event[;`openDate],
+                		selectionName: `$runners[;;`runnerName],  selectionId: `int$ runners[;;`selectionId] from data}
+
+// function to check if there are any events scheduled to go in-play in the next X period, and then add subscriptions for them
+checkIfToAddSub:{[filter;lookFwdPeriod;subIntrvl]
+	/ - add in time filter
+	filter[`marketStartTime]:`from`to! .html.jstsiso8601 .tz.gd .proc.cp[] + neg[autosubtimerf],lookFwdPeriod;
+	/ - get the market catalogue, escape if there is nothing returned
+	if[not count data:getMarketCatalogue[filter];:()];
+	/ - add subscription(s) in the .requestor.cfg
+	addSubscription["|" sv' string flip data`eventTypeName`eventName`marketName;data`sym;0Wp;subIntrvl]}
 
 // function to call the betfair api for data requests
 callApi:{[typ;req]
@@ -267,7 +294,7 @@ if[logoutonexit;
 		logout[];
 		f[x]
 		}[@[value;`.z.exit;{{}}]]];
-		
+
 // run initialization
 \d .
 .requestor.sessionToken:"";

@@ -22,9 +22,9 @@ gc:1b			// garbage collect at appropriate points (after each table save and afte
 .replay.postreplay:{[d;p]
 	.lg.o[`postreplay;"Calling the postreplay function"];
 	/ - get the sym file and set it globally
-	@[`.;`sym;:;get ` sv (d:hsym d),`sym];
-	/ - get a distinct list of the marketids (sym) from the metadata table
-	marketids: exec sym from distinct select value sym from .Q.par[d;p;`metadata];
+	symfile: @[get;` sv (d:hsym d),`sym;{[e] .lg.e[`postreplay;"Couldn't pull the sym file from disk. Error returned : ",e;'e]}];
+	/ - get a distinct list of the marketids (sym) from the quote table
+	marketids: exec sym from distinct select value sym from .Q.par[d;p;`quote];
 	/ - save down the marketids to activeDates table
 	.[` sv d,`activeDates;();,; ([date: enlist p] marketids: enlist marketids)];
 	.lg.o[`postreplay;"Post replay complete"]}			

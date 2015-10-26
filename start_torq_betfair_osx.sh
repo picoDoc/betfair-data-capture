@@ -56,5 +56,5 @@ q torq.q -load code/processes/compression.q  -proctype compression -procname com
 
 # launch compress
 echo 'Starting requestor proc...'
-q torq.q -load code/processes/requestor.q -proctype requestor -procname requestor1 -localtime 1 </dev/null >$KDBLOG/torqrequestor1.txt 2>&1 &
+q torq.q -load code/processes/requestor.q -proctype requestor -procname requestor1 -localtime </dev/null >$KDBLOG/torqrequestor1.txt 2>&1 &
 
