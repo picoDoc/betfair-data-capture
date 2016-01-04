@@ -1,5 +1,9 @@
+![image](https://raw.github.com/picoDoc/betfair-data-capture/readme_img.png)
+
 # TorQonnect-Betfair
-This is a simple example of a market data capture system using sports exchange (betting) data from betfair.com.  This is installed on top of the base TorQ package, and includes a version of [kdb+tick](http://code.kx.com/wsvn/code/kx/kdb+tick).
+This is a market data capture system for sports exchange (betting) data from betfair.com.  This is based on kdb+ and [AquaQ's TorQ](https://github.com/AquaQAnalytics/TorQ) framework.
+
+I've used this system already to capture a range of cool data on events including [Superbowl XLIX](http://www.picodoc.org/superbowl-xlix-data-visualization/), the [2015 Six Nations championship](http://www.picodoc.org/six-nations-2015/) and the [2015 UK general election](http://www.picodoc.org/uk-general-election-2015-telling-the-story-of-results-night-with-data/) (shown above). 
 
 ## Prerequisites
 
