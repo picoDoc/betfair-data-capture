@@ -1,4 +1,4 @@
-![image](https://raw.github.com/picoDoc/betfair-data-capture/readme_img.png)
+![header image](readme_img.png)
 
 # TorQonnect-Betfair
 This is a market data capture system for sports exchange (betting) data from betfair.com.  This is based on kdb+ and [AquaQ's TorQ](https://github.com/AquaQAnalytics/TorQ) framework.
