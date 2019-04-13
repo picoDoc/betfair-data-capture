@@ -18,7 +18,7 @@ if sys.argv[1] == 'login' :
 	certpath_slashes = certpath.replace( '\\' , '/' )
 	# create header
 	headers = {'X-Application': app_key , 'content-type': 'application/x-www-form-urlencoded'}
-	url = 'https://identitysso.betfair.com/api/certlogin'
+	url = 'https://identitysso-cert.betfair.com/api/certlogin'
 	# send off the request
 	resp = requests.post(url, data=json.loads(json_str) , cert=( certpath_slashes + 'client-2048.crt', certpath_slashes + 'client-2048.key'), headers=headers)
 elif sys.argv[1] == 'data' :
@@ -39,7 +39,7 @@ elif sys.argv[1] == 'keepAlive' :
 	# define the headers
 	headers = {'X-Application': app_key, 'X-Authentication': session_token, 'Accept' : 'application/json' }
 	# definer the url
-	url = 'https://identitysso.betfair.com/api/keepAlive'
+	url = 'https://identitysso-cert.betfair.com/api/keepAlive'
 	# call the betfair api and print the json string to stdout
 	resp = requests.post(url, headers=headers)
 elif sys.argv[1] == 'logout' :
@@ -49,7 +49,7 @@ elif sys.argv[1] == 'logout' :
 	# define the headers
 	headers = {'X-Application': app_key, 'X-Authentication': session_token, 'Accept' : 'application/json' }
 	# definer the url
-	url = 'https://identitysso.betfair.com/api/logout'
+	url = 'https://identitysso-cert.betfair.com/api/logout'
 	# call the betfair api and print the json string to stdout
 	resp = requests.post(url, headers=headers)
 else :

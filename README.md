@@ -30,14 +30,14 @@ To get this framework up and running in a unix environment you need two things:
         .requestor.password:"password";
         ```
 
-    - Betfair also requires something called an **Application Key**.  You can find more information on this and how to obtain it [here](https://api.developer.betfair.com/services/webapps/docs/display/1smk3cen4v3lu3yomq5qye0ni/Application+Keys).  If you follow the instructions listed under **How to Create An Application Key** betfair will give you one.  Make sure you are logged into your betfair account while you follow the instructions and the **sessionToken** will be automatically filled in, making you life alot easier.  For the **Application name** you can choose anything you like.
+    - Betfair also requires something called an **Application Key**.  You can find more information on this and how to obtain it [here](https://docs.developer.betfair.com/display/1smk3cen4v3lu3yomq5qye0ni/Application+Keys).  If you follow the instructions listed under **How to Create An Application Key** betfair will give you one.  Make sure you are logged into your betfair account while you follow the instructions and the **sessionToken** will be automatically filled in, making you life alot easier.  For the **Application name** you can choose anything you like.
     - Once you've followed the steps to create an application key, in the API-NG visualizer click **getDeveloperAppKeys** then **Execute**.  This will return two keys, one with a delay and one without.  You probably want the one without.  Add this info to *requestor.q*.
 
         ```
         .requestor.appKey:"eQud5Jawxlq2CuLQ";
         ```
 
-* Since this framework will collect data automatically it requires a non-interactive authorised login method.  Details of how to set this up with Betfair are [here](http://docs.developer.betfair.com/docs/display/1smk3cen4v3lu3yomq5qye0ni/Non-Interactive+(bot)+login).  Follow the instructions in the sections **Creating a Self Signed Certificate** and **Linking the Certificate to Your Betfair Account**.  This will generate 3 files:
+* Since this framework will collect data automatically it requires a non-interactive authorised login method.  Details of how to set this up with Betfair are [here](https://docs.developer.betfair.com/display/1smk3cen4v3lu3yomq5qye0ni/Non-Interactive+%28bot%29+login).  Follow the instructions in the sections **Creating a Self Signed Certificate** and **Linking the Certificate to Your Betfair Account**.  This will generate 3 files:
     - client-2048.key
     - client-2048.csr
     - client-2048.crt
@@ -55,7 +55,7 @@ To get this framework up and running in a unix environment you need two things:
     .requestor.addSubscription["Grexit";`1.117087478;0Wp;0D00:00:10]
     ```
     
-* The best way to find the marketId for a particular event is using the betfair [Betting API visualiser](https://developer.betfair.com/exchange-api/betting-api-demo/).  Under **listMarketCatalogue** you can search through the available markets by name, volume traded, sport etc.  Again if you're logged in before you click this the **Session Token** will autofill, and the **appKey** is the same as the one you filled in above.
+* The best way to find the marketId for a particular event is using the betfair [Betting API visualiser](https://docs.developer.betfair.com/visualisers/api-ng-sports-operations/).  Under **listMarketCatalogue** you can search through the available markets by name, volume traded, sport etc.  Again if you're logged in before you click this the **Session Token** will autofill, and the **appKey** is the same as the one you filled in above.
 * Once you have a few markets setup to collect data on, all that's left to do is run the startup script to start up the TorQ stack and start collecting data!
 
     ```
@@ -84,7 +84,7 @@ or double-click on the *start_torq_betfair.bat* file if you are running on Windo
         getMid[`1.117087478;0b]
 	getMid[`1.117087478;1b]
         ```
-    - To return the implied odds based on trades matched, and the volume of trades matched, run (bucket is in minutes):
+    - To return the implied odds based on trades matched, and the volume of trades matched, run (bucket is in minutes) (*NOTE this only works if you receive trade data, I think this is no longer free*):
 
         ```
         getOdds[marketID;bucket;pivot]
@@ -93,7 +93,7 @@ or double-click on the *start_torq_betfair.bat* file if you are running on Windo
 	getOdds[`1.117087478;10;1b]
 	getOdds[`1.117087478;1;0b]
         ```
-    - To return the volume weighted average price you would have to pay if trading a given volume run:
+    - To return the volume weighted average price you would have to pay if trading a given volume run (*NOTE this only works if you receive trade data, I think this is no longer free*):
 
 	```
         getVwap[marketID;size]
